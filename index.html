@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Note Link mini v0.7.0 / build: mini-fix17</title>
+
+<style>
+/* ========== Theme ========== */
+:root{
+  --ink:#e6f1ff;            /* 文字/アイコン(白寄り) */
+  --ink-dim:#9bd6e9;        /* 補助文字 */
+  --bg:#0b0f1a;             /* 背景(濃紺) */
+  --panel:#0f1420;          /* 設定パネル背景 */
+  --accent:#4f7cff;         /* 上部バー色(青) */
+  --accent-weak:#2a54ff;    /* グラデ薄い方 */
+  --ok:#22c55e;             /* 緑 */
+  --danger:#ef4444;         /* 赤 */
+  --muted:#27324a;          /* 線/枠 */
+  --shadow:0 10px 24px rgba(0,0,0,.45);
+  --topbar-h:44px;
+  --sidebar-w:48px;
+  --corner:12px;
+  --gap:8px;
+}
+*{box-sizing:border-box}
+
+/* ========== Layout ========== */
+html,body{height:100%; background:var(--bg); color:var(--ink); font-family:system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;}
+#wrap{position:relative; height:100%;}
+.topbar{
+  position:sticky; top:0; left:0; right:0; z-index:50;
+  height:var(--topbar-h);
+  display:flex; align-items:center; gap:8px; padding:0 10px;
+  background:linear-gradient(0deg, var(--accent-weak), var(--accent));
+  border-bottom:1px solid rgba(255,255,255,.08);
+  box-shadow:0 1px 0 rgba(0,0,0,.25);
+}
+.topbar .spacer{flex:1}
+.topbar .badge{height:28px; padding:0 10px; display:flex; align-items:center; font-size:12px; color:#fff; border-radius:999px; background:rgba(255,255,255,.12)}
+.topbar button{
+  height:28px; padding:0 10px; border-radius:10px; display:inline-flex; align-items:center; gap:6px;
+  font-size:12px; color:white; background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.22);
+}
+.topbar button:active{transform:translateY(1px)}
+.topbar .btn-ok{background:rgba(46,204,113,.2)}
+.topbar .btn-danger{background:rgba(231,76,60,.25)}
+
+/* 左ツールバー（オーバーレイ） */
+.sidebar{
+  position:absolute; inset:auto auto 12px 12px; top:calc(var(--topbar-h) + 8px);
+  width:var(--sidebar-w);
+  display:flex; flex-direction:column; gap:8px; padding:6px;
+  background:rgba(0,0,0,.28); border:1px solid rgba(255,255,255,.1); border-radius:16px;
+  box-shadow:0 0 0 1px rgba(0,0,0,.2) inset, 0 8px 30px rgba(0,0,0,.5);
+}
+.sidebar[data-collapsed="1"]{ height:45px; overflow:hidden; }
+.tool{
+  width:36px; height:36px; border-radius:10px; display:grid; place-items:center;
+  cursor:pointer; background:var(--panel);
+  border:1px solid rgba(255,255,255,.12); color:var(--ink);
+  outline:0; box-shadow:0 0 0 0 rgba(79,124,255,.35); transition:box-shadow .15s, border-color .15s;
+  user-select:none;
+}
+.tool svg{width:18px; height:18px; fill:none; stroke:var(--ink); stroke-width:2.2;}
+.tool:hover{border-color:rgba(255,255,255,.35)}
+.tool.active{box-shadow:0 0 0 2px rgba(69,214,125,.65); border-color:rgba(69,214,125,.65)}
+.tool .label{position:absolute; left:48px; top:50%; transform:translateY(-50%); background:#222a; color:#fff; font-size:12px; padding:4px 8px; border-radius:8px; white-space:nowrap; pointer-events:none; display:none}
+.tool:hover .label{display:block}
+
+/* 折畳み矢印（中抜き三角） */
+.arrow{display:grid; place-items:center}
+.arrow svg{transform:rotate(0deg); transition:transform .15s}
+.sidebar[data-collapsed="1"] .arrow svg{transform:rotate(180deg)}
+
+/* キャンバス */
+#stage{position:absolute; inset:var(--topbar-h) 0 0 0; padding-left:0;}
+canvas{display:block; width:100%; height:100%}
+
+/* 設定パネル */
+.panel{
+  position:absolute; left:64px; top:56px; z-index:60; min-width:300px;
+  background:rgba(18,23,37,.95); border:1px solid rgba(255,255,255,.14);
+  border-radius:12px; padding:12px; box-shadow:var(--shadow); display:none;
+}
+.panel.show{display:block}
+.panel h4{margin:0 0 10px; font-size:14px}
+.row{display:flex; align-items:center; gap:10px; margin:8px 0}
+.row label{width:86px; font-size:12px; color:var(--ink-dim)}
+.row input[type="range"]{flex:1}
+.row input[type="color"]{width:32px; height:22px; padding:0; border:0; background:transparent;}
+
+/* グリッド表示用 */
+.grid{position:absolute; inset:var(--topbar-h) 0 0 0; pointer-events:none; background-size:10mm 10mm; background-position:0 0; opacity:.18; display:none}
+.grid.show{display:block}
+
+/* スマホの縦書き化を強制横書きで固定 */
+.topbar, .topbar *{ writing-mode:horizontal-tb !important; text-orientation:mixed !important; white-space:nowrap; }
+
+/* モバイルでブラウザがジェスチャを奪わない */
+#stage, canvas{ touch-action:none; -webkit-user-select:none; user-select:none; }
+html, body{ overscroll-behavior:none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="topbar">
+    <b>Note Link mini v0.7.0</b>
+    <button id="btn-undo">undo</button>
+    <button id="btn-redo">redo</button>
+    <span class="spacer"></span>
+    <button id="btn-print">印刷</button>
+    <button id="btn-png" class="btn-ok">PNG</button>
+    <button id="btn-share">共有</button>
+    <span class="badge">build: mini-fix17</span>
+  </div>
+
+  <!-- Grid (背景) -->
+  <div id="grid" class="grid"></div>
+
+  <!-- Canvas stage -->
+  <div id="stage">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar" data-collapsed="0">
+    <button class="tool arrow" id="btn-toggle" title="折畳み">
+      <svg viewBox="0 0 24 24"><path d="M6 14l6-6 6 6"/></svg>
+      <span class="label">開閉</span>
+    </button>
+    <button class="tool active" data-tool="pen"   title="ペン">
+      <svg viewBox="0 0 24 24"><path d="M3 21l6-2 9-9a2.8 2.8 0 0 0-4-4l-9 9-2 6z"/></svg>
+      <span class="label">ペン</span>
+    </button>
+    <button class="tool" data-tool="marker" title="マーカー">
+      <svg viewBox="0 0 24 24"><path d="M4 20l4-1 8-8M15 5l4 4"/></svg>
+      <span class="label">マーカー</span>
+    </button>
+    <button class="tool" data-tool="eraser" title="消しゴム">
+      <svg viewBox="0 0 24 24"><path d="M3 17l6 6h5l7-7-11-11-7 7zM6 20h5"/></svg>
+      <span class="label">消しゴム</span>
+    </button>
+    <button class="tool" data-tool="text" title="テキスト">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16M12 6v12"/></svg>
+      <span class="label">テキスト</span>
+    </button>
+    <button class="tool" id="btn-gear" title="設定（表示/非表示）">
+      <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm8 4l2 1-2 1a7.8 7.8 0 0 1-.7 1.7l1.3 1.8-1.6 1.6-1.8-1.3c-.55.32-1.13.56-1.74.73L13 22h-2l-1-2.2a7.9 7.9 0 0 1-1.74-.73L6.5 20.4 4.9 18.8 6.2 17a7.8 7.8 0 0 1-.7-1.7L3 13l2-1a7.8 7.8 0 0 1 .73-1.74L4.4 8.5 6 6.9l1.8 1.3A7.8 7.8 0 0 1 9.5 7.5L11 5h2l1 2.2c.61.17 1.19.41 1.74.73L17.6 6.9l1.6 1.6-1.3 1.8c.32.55.56 1.13.73 1.74z"/></svg>
+      <span class="label">設定</span>
+    </button>
+  </div>
+
+  <!-- Settings Panel -->
+  <div class="panel" id="panel">
+    <h4 id="panel-title">ペン設定</h4>
+
+    <div class="row"><label>色</label>
+      <input type="color" id="ctl-color" value="#cfeea0" />
+    </div>
+    <div class="row"><label>太さ <span id="val-size">4px</span></label>
+      <input type="range" id="ctl-size" min="1" max="56" step="1" value="4" />
+    </div>
+    <div class="row" id="row-alpha"><label>不透明度 <span id="val-alpha">100%</span></label>
+      <input type="range" id="ctl-alpha" min="5" max="100" step="1" value="100" />
+    </div>
+
+    <div class="row"><label>直線モード</label>
+      <input type="checkbox" id="ctl-straight" />
+      <span style="color:var(--ink-dim);font-size:12px">（モバイル用 / 15°刻み）</span>
+    </div>
+
+    <hr style="border:none;border-top:1px solid rgba(255,255,255,.1); margin:8px 0;">
+    <div class="row"><label>グリッド</label>
+      <input type="checkbox" id="ctl-grid" />
+      <select id="ctl-grid-size">
+        <option value="5">5mm</option>
+        <option value="10" selected>10mm</option>
+      </select>
+      <span style="color:var(--ink-dim);font-size:12px">（表示/非表示）</span>
+    </div>
+
+    <button id="btn-close" class="topbar" style="position:absolute;right:10px;top:10px;height:26px;padding:0 10px;border-radius:8px;">閉じる</button>
+  </div>
+</div>
+
+<script>
+/* =========================
+   Note Link mini core (fix17)
+   ========================= */
+(() => {
+  // --- DOM参照 ---
+  const canvas = document.getElementById('canvas');
+  const grid   = document.getElementById('grid');
+  const ctx = canvas.getContext('2d');
+
+  // 上部メニュー
+  const btnUndo = document.getElementById('btn-undo');
+  const btnRedo = document.getElementById('btn-redo');
+  const btnPrint= document.getElementById('btn-print');
+  const btnPNG  = document.getElementById('btn-png');
+  const btnShare= document.getElementById('btn-share');
+
+  // ツールバー
+  const sidebar= document.getElementById('sidebar');
+  const btnToggle = document.getElementById('btn-toggle');
+  const btnGear = document.getElementById('btn-gear');
+  const toolBtns = [...document.querySelectorAll('.tool[data-tool]')];
+
+  // 設定パネル
+  const panel = document.getElementById('panel');
+  const panelTitle = document.getElementById('panel-title');
+  const ctlColor = document.getElementById('ctl-color');
+  const ctlSize  = document.getElementById('ctl-size');
+  const ctlAlpha = document.getElementById('ctl-alpha');
+  const rowAlpha = document.getElementById('row-alpha');
+  const valSize  = document.getElementById('val-size');
+  const valAlpha = document.getElementById('val-alpha');
+  const ctlStraight = document.getElementById('ctl-straight');
+  const ctlGrid = document.getElementById('ctl-grid');
+  const ctlGridSize = document.getElementById('ctl-grid-size');
+  const btnClose = document.getElementById('btn-close');
+
+  // --- 状態 ---
+  const state = {
+    tool:'pen',       // pen | marker | eraser | text
+    color:'#cfeea0',
+    size:4,
+    alpha:1,
+    straight:false,   // モバイル用トグル
+    shift:false,      // PC Shift
+    drawing:false,
+    activeId:null,
+    last:{x:0,y:0},
+    history:[],
+    future:[],
+    maxHist:10,
+  };
+
+  function setCanvasSize(){
+    const r = document.getElementById('stage').getBoundingClientRect();
+    canvas.width  = Math.max(1, Math.floor(r.width  * devicePixelRatio));
+    canvas.height = Math.max(1, Math.floor(r.height * devicePixelRatio));
+    canvas.style.width  = r.width+'px';
+    canvas.style.height = r.height+'px';
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    drawGrid(); // リサイズ時
+  }
+  addEventListener('resize', setCanvasSize, {passive:true});
+  setCanvasSize();
+
+  // ========== グリッド ==========
+  function drawGrid(){
+    const mm = (ctlGrid.checked ? Number(ctlGridSize.value) : 0);
+    grid.classList.toggle('show', mm>0);
+    if(mm===0) return;
+    // 96dpi ≒ 3.78px/mm
+    const px = Math.round(mm * 3.78);
+    grid.style.backgroundImage = `
+      linear-gradient(to right, rgba(255,255,255,.24) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,.24) 1px, transparent 1px)
+    `;
+    grid.style.backgroundSize = `${px}px ${px}px, ${px}px ${px}px`;
+  }
+  ctlGrid.addEventListener('change', drawGrid);
+  ctlGridSize.addEventListener('change', drawGrid);
+
+  // ========== ツール切替 ==========
+  function activate(tool){
+    state.tool = tool;
+    toolBtns.forEach(b => b.classList.toggle('active', b.dataset.tool===tool));
+    const titles = {pen:'ペン設定', marker:'マーカー設定', eraser:'消しゴム設定', text:'テキスト設定'};
+    panelTitle.textContent = titles[tool] || '設定';
+    rowAlpha.style.display = (tool==='marker') ? 'flex':'none';
+    panel.classList.add('show'); // いつでも表示切替可
+    updatePreviewLabels();
+  }
+  toolBtns.forEach(btn => btn.addEventListener('click', () => activate(btn.dataset.tool)));
+
+  // 設定コントロール
+  function updatePreviewLabels(){
+    valSize.textContent  = state.size + 'px';
+    valAlpha.textContent = Math.round(state.alpha*100) + '%';
+  }
+  ctlColor.addEventListener('input', e => state.color = e.target.value);
+  ctlSize .addEventListener('input', e => { state.size = +e.target.value; updatePreviewLabels(); });
+  ctlAlpha.addEventListener('input', e => { state.alpha = (+e.target.value)/100; updatePreviewLabels(); });
+  ctlStraight.addEventListener('change', e => state.straight = e.target.checked);
+
+  btnGear.addEventListener('click', () => panel.classList.toggle('show'));
+  btnClose.addEventListener('click', () => panel.classList.remove('show'));
+
+  // 折畳み
+  btnToggle.addEventListener('click', () => {
+    const c = sidebar.getAttribute('data-collapsed') === '1' ? '0' : '1';
+    sidebar.setAttribute('data-collapsed', c);
+  });
+
+  // ========== 直線スナップ ==========
+  function snap15(from, to){
+    const dx = to.x-from.x, dy = to.y-from.y;
+    const ang = Math.atan2(dy, dx);
+    const step = Math.round(ang/(Math.PI/12))*(Math.PI/12);
+    const len = Math.hypot(dx, dy);
+    return { x: from.x + Math.cos(step)*len, y: from.y + Math.sin(step)*len, angle: step };
+  }
+
+  // ========== 履歴 ==========
+  function pushHist(){
+    state.future.length = 0;
+    const img = canvas.toDataURL('image/png');
+    state.history.push(img);
+    if(state.history.length > state.maxHist) state.history.shift();
+  }
+  function restore(img){
+    const image = new Image();
+    image.onload = () => {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(image,0,0);
+    };
+    image.src = img;
+  }
+  btnUndo.addEventListener('click', () => {
+    if(!state.history.length) return;
+    const cur = canvas.toDataURL('image/png');
+    state.future.push(cur);
+    restore(state.history.pop());
+  });
+  btnRedo.addEventListener('click', () => {
+    if(!state.future.length) return;
+    const img = state.future.pop();
+    pushHist(); // 現在を履歴へ
+    restore(img);
+  });
+
+  // ========== 座標変換 ==========
+  function rect(){ return canvas.getBoundingClientRect(); }
+  function pt(e){
+    const r = rect();
+    const x = (e.clientX - r.left) * (canvas.width / r.width);
+    const y = (e.clientY - r.top)  * (canvas.height/ r.height);
+    return {x,y};
+  }
+
+  // ========== 描画 ==========
+  function applyStrokeStyle(){
+    ctx.lineWidth = state.size;
+    ctx.strokeStyle = state.color;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.globalCompositeOperation = 'source-over';
+    if(state.tool==='marker'){
+      ctx.globalAlpha = state.alpha;
+    }else{
+      ctx.globalAlpha = 1;
+    }
+    if(state.tool==='eraser'){
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.strokeStyle = 'rgba(0,0,0,1)';
+    }
+  }
+
+  function start(e){
+    e.preventDefault();
+    state.drawing = true;
+    state.activeId = e.pointerId;
+    canvas.setPointerCapture(state.activeId);
+    state.last = pt(e);
+    pushHist(); // 開始時点を保存
+    applyStrokeStyle();
+  }
+  function move(e){
+    if(!state.drawing || e.pointerId !== state.activeId) return;
+    e.preventDefault();
+    let cur = pt(e);
+    const straight = state.straight || state.shift;
+    if(straight){
+      cur = snap15(state.last0 ?? state.last, cur); // 始点固定
+    }
+    ctx.beginPath();
+    ctx.moveTo(state.last.x, state.last.y);
+    ctx.lineTo(cur.x, cur.y);
+    ctx.stroke();
+    state.last = cur;
+    if(state.last0 === undefined) state.last0 = state.last; // 初回保存
+  }
+  function end(e){
+    if(e.pointerId !== state.activeId) return;
+    e.preventDefault();
+    canvas.releasePointerCapture(state.activeId);
+    state.drawing = false;
+    state.activeId = null;
+    state.last0 = undefined;
+  }
+
+  canvas.addEventListener('pointerdown', start, {passive:false});
+  canvas.addEventListener('pointermove', move,  {passive:false});
+  canvas.addEventListener('pointerup',   end,   {passive:false});
+  canvas.addEventListener('pointercancel', end, {passive:false});
+
+  // PC: Shift 監視
+  addEventListener('keydown', e => { if(e.key==='Shift') state.shift = true; }, {passive:true});
+  addEventListener('keyup',   e => { if(e.key==='Shift') state.shift = false;}, {passive:true});
+
+  // iOS/Android のジェスチャ抑止（保険）
+  addEventListener('touchmove', e => e.preventDefault(), {passive:false});
+
+  // ========== テキスト ==========
+  // 最小実装：Tツール中にキャンバスをクリックでテキスト追加
+  canvas.addEventListener('pointerdown', (e)=>{
+    if(state.tool!=='text') return;
+    const p = pt(e);
+    const div = document.createElement('div');
+    div.contentEditable = "true";
+    div.textContent = "テキスト";
+    Object.assign(div.style,{
+      position:'absolute', left:(p.x/devicePixelRatio)+'px', top:(p.y/devicePixelRatio)+'px',
+      minWidth:'40px', color:'#fff', padding:'2px 6px',
+      background:'rgba(0,0,0,.2)', border:'1px solid rgba(255,255,255,.2)', borderRadius:'6px'
+    });
+    document.getElementById('stage').appendChild(div);
+    div.focus();
+  }, {passive:false});
+
+  // ========== 出力 ==========
+  btnPNG.addEventListener('click', () => {
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url; a.download = 'note.png'; a.click();
+  });
+  btnPrint.addEventListener('click', () => {
+    const w = window.open('','_blank');
+    const url = canvas.toDataURL('image/png');
+    w.document.write(`<img src="${url}" style="width:100%">`);
+    w.document.close(); w.focus(); w.print();
+  });
+  btnShare.addEventListener('click', async () => {
+    const shareUrl = location.href;
+    if(navigator.share){
+      try{ await navigator.share({title:document.title, url:shareUrl}); }catch{}
+    }else{
+      await navigator.clipboard.writeText(shareUrl);
+      alert('URLをクリップボードにコピーしました');
+    }
+  });
+
+  // 初期値をUIへ反映
+  ctlColor.value = state.color;
+  ctlSize.value = state.size;
+  ctlAlpha.value = 100;
+  updatePreviewLabels();
+  activate('pen'); // 初期ツール
+})();
+</script>
+</body>
+</html>
