@@ -3,453 +3,503 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Note Link mini v0.7.0 / build: mini-fix17</title>
-
+<title>Note Link mini – v0.6.9-fix18 / No.13</title>
 <style>
-/* ========== Theme ========== */
 :root{
-  --ink:#e6f1ff;            /* 文字/アイコン(白寄り) */
-  --ink-dim:#9bd6e9;        /* 補助文字 */
-  --bg:#0b0f1a;             /* 背景(濃紺) */
-  --panel:#0f1420;          /* 設定パネル背景 */
-  --accent:#4f7cff;         /* 上部バー色(青) */
-  --accent-weak:#2a54ff;    /* グラデ薄い方 */
-  --ok:#22c55e;             /* 緑 */
-  --danger:#ef4444;         /* 赤 */
-  --muted:#27324a;          /* 線/枠 */
-  --shadow:0 10px 24px rgba(0,0,0,.45);
-  --topbar-h:44px;
-  --sidebar-w:48px;
-  --corner:12px;
-  --gap:8px;
+  --ink:#e6f1ff; --ink-dim:#98d6e9; --bg:#0b1020;
+  --panel:#0f1426; --muted:#2a3750; --accent:#447bff; --accent-weak:#2a54ff;
+  --danger:#ff5c7a; --ok:#1ad19f; --shadow:0 10px 24px rgba(0,0,0,.45);
+  --topbar-h:44px; --toolbar-w:56px; --gap:0px;
 }
 *{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Hiragino Kaku Gothic ProN","Meiryo",sans-serif;overflow:hidden}
 
-/* ========== Layout ========== */
-html,body{height:100%; background:var(--bg); color:var(--ink); font-family:system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;}
-#wrap{position:relative; height:100%;}
-.topbar{
-  position:sticky; top:0; left:0; right:0; z-index:50;
-  height:var(--topbar-h);
-  display:flex; align-items:center; gap:8px; padding:0 10px;
-  background:linear-gradient(0deg, var(--accent-weak), var(--accent));
-  border-bottom:1px solid rgba(255,255,255,.08);
-  box-shadow:0 1px 0 rgba(0,0,0,.25);
+/* ===== Top bar ===== */
+.topbar{position:sticky;top:0;left:0;right:0;height:var(--topbar-h);
+  display:flex;align-items:center;gap:8px;padding:0 10px;
+  background:linear-gradient(0deg,rgba(42,84,255,.25),rgba(68,123,255,.35));
+  border-bottom:1px solid rgba(255,255,255,.15); z-index:20;
+  writing-mode:horizontal-tb !important; text-orientation:mixed !important;
 }
 .topbar .spacer{flex:1}
-.topbar .badge{height:28px; padding:0 10px; display:flex; align-items:center; font-size:12px; color:#fff; border-radius:999px; background:rgba(255,255,255,.12)}
-.topbar button{
-  height:28px; padding:0 10px; border-radius:10px; display:inline-flex; align-items:center; gap:6px;
-  font-size:12px; color:white; background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.22);
+.btn{height:28px;padding:0 10px;border-radius:10px;display:inline-flex;align-items:center;gap:6px;
+  font-size:12px;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);
+  transform:translateY(0); transition:.15s ease; touch-action:manipulation;
 }
-.topbar button:active{transform:translateY(1px)}
-.topbar .btn-ok{background:rgba(46,204,113,.2)}
-.topbar .btn-danger{background:rgba(231,76,60,.25)}
+.btn:active{transform:translateY(1px)}
+.badge{opacity:.65;font-size:11px;padding:2px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18)}
 
-/* 左ツールバー（オーバーレイ） */
-.sidebar{
-  position:absolute; inset:auto auto 12px 12px; top:calc(var(--topbar-h) + 8px);
-  width:var(--sidebar-w);
-  display:flex; flex-direction:column; gap:8px; padding:6px;
-  background:rgba(0,0,0,.28); border:1px solid rgba(255,255,255,.1); border-radius:16px;
-  box-shadow:0 0 0 1px rgba(0,0,0,.2) inset, 0 8px 30px rgba(0,0,0,.5);
+/* ===== Stage layout ===== */
+#wrapper{position:relative;width:100vw;height:calc(100vh - var(--topbar-h) - var(--gap));}
+#stage{position:absolute;inset:0;display:grid;grid-template-columns:var(--toolbar-w) 1fr;}
+
+/* ===== Toolbar ===== */
+.sidebar{background:#000; width:var(--toolbar-w); padding:6px; border-radius:12px; box-shadow:0 0 0 1px rgba(255,255,255,.08) inset; 
+  height:100%; display:flex; flex-direction:column; align-items:center; gap:10px; padding-top:14px; z-index:11; }
+.tgl{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.06);display:grid;place-items:center;
+  border:1px solid rgba(255,255,255,.1); cursor:pointer; position:relative; outline:0; }
+.tgl svg{width:18px;height:18px}
+.tgl:hover{outline:2px solid rgba(79,124,255,.35)}
+.tgl.active{outline:2px solid var(--ok)}
+.tgl:focus-visible{outline:2px solid #fff}
+.tgl.icon-gear svg{filter:drop-shadow(0 0 0 transparent)} /* 純白ギア */
+.icon-gear svg path{fill:#fff}
+.icon-tri svg{fill:none;stroke:#ddd;stroke-width:2}
+.icon-tri.folded svg{transform:rotate(180deg)}
+/* 畳みバー */
+.foldbar{position:absolute;left:6px;top:6px;width:36px;height:36px;z-index:12}
+
+/* 折畳み時：高さ45pxにして▽のみ残す */
+body.fold #wrapper{height:45px}
+body.fold #stage{grid-template-columns:var(--toolbar-w) 0}
+body.fold .sidebar{height:45px;align-items:flex-start}
+body.fold .sidebar > .tgl:not(.foldbar){display:none}
+body.fold .foldbar .icon-tri svg{transform:rotate(180deg)}
+
+/* ===== Canvas ===== */
+#canvasWrap{position:relative;overflow:hidden}
+canvas{display:block;width:100%;height:100%;touch-action:none;background:
+  radial-gradient(rgba(255,255,255,.04) 1px, transparent 1px);}
+#overlay{position:absolute;inset:0;pointer-events:none}
+.angleHUD{position:absolute;transform:translate(-50%,-120%);font-size:12px;padding:2px 6px;border-radius:8px;background:#222a;border:1px solid #fff3}
+
+/* ===== Panels ===== */
+.panel{position:absolute;left:62px;top:56px;min-width:320px;z-index:15;background:rgba(12,17,27,.95);
+  border:1px solid rgba(255,255,255,.14); border-radius:12px; padding:12px; box-shadow:var(--shadow); display:none}
+.panel.dragging{cursor:grabbing}
+.panel h4{margin:8px 0 10px 0}
+.row{display:flex;align-items:center;gap:10px;margin:10px 0}
+.row label{width:92px;font-size:12px;color:var(--ink-dim)}
+.panel input[type="color"]{width:34px;height:22px;padding:0;border:0;background:transparent}
+.panel input[type="range"]{flex:1}
+.select{appearance:none;background:#121a2a;color:#fff;border:1px solid #fff2;border-radius:8px;padding:6px 24px 6px 8px}
+
+/* グリッド明度 */
+:root{--grid-alpha:.2}
+.grid-on canvas{background:
+  linear-gradient(transparent,transparent),
+  linear-gradient(90deg, rgba(255,255,255,var(--grid-alpha)) 1px, transparent 1px),
+  linear-gradient(rgba(255,255,255,var(--grid-alpha)) 1px, transparent 1px);}
+
+/* テキストボックス */
+.textbox{position:absolute;min-width:120px;min-height:28px;padding:6px 8px;background:transparent;color:#fff;
+  border:1px dashed rgba(255,255,255,.25); border-radius:8px; outline:none; }
+.textbox:focus{border-style:solid}
+.textbox .handle{position:absolute;right:-10px;top:-10px;width:20px;height:20px;border-radius:50%;background:#222a;border:1px solid #fff3;display:grid;place-items:center;font-size:12px}
+
+/* 上部バーの横書き固定（スマホ対策） */
+.topbar, .topbar *{writing-mode:horizontal-tb !important;text-orientation:mixed !important}
+
+/* 小さめ端末でのボタン配置 */
+@media (max-width:600px){
+  .btn{padding:0 8px}
+  .panel{min-width:300px}
 }
-.sidebar[data-collapsed="1"]{ height:45px; overflow:hidden; }
-.tool{
-  width:36px; height:36px; border-radius:10px; display:grid; place-items:center;
-  cursor:pointer; background:var(--panel);
-  border:1px solid rgba(255,255,255,.12); color:var(--ink);
-  outline:0; box-shadow:0 0 0 0 rgba(79,124,255,.35); transition:box-shadow .15s, border-color .15s;
-  user-select:none;
-}
-.tool svg{width:18px; height:18px; fill:none; stroke:var(--ink); stroke-width:2.2;}
-.tool:hover{border-color:rgba(255,255,255,.35)}
-.tool.active{box-shadow:0 0 0 2px rgba(69,214,125,.65); border-color:rgba(69,214,125,.65)}
-.tool .label{position:absolute; left:48px; top:50%; transform:translateY(-50%); background:#222a; color:#fff; font-size:12px; padding:4px 8px; border-radius:8px; white-space:nowrap; pointer-events:none; display:none}
-.tool:hover .label{display:block}
-
-/* 折畳み矢印（中抜き三角） */
-.arrow{display:grid; place-items:center}
-.arrow svg{transform:rotate(0deg); transition:transform .15s}
-.sidebar[data-collapsed="1"] .arrow svg{transform:rotate(180deg)}
-
-/* キャンバス */
-#stage{position:absolute; inset:var(--topbar-h) 0 0 0; padding-left:0;}
-canvas{display:block; width:100%; height:100%}
-
-/* 設定パネル */
-.panel{
-  position:absolute; left:64px; top:56px; z-index:60; min-width:300px;
-  background:rgba(18,23,37,.95); border:1px solid rgba(255,255,255,.14);
-  border-radius:12px; padding:12px; box-shadow:var(--shadow); display:none;
-}
-.panel.show{display:block}
-.panel h4{margin:0 0 10px; font-size:14px}
-.row{display:flex; align-items:center; gap:10px; margin:8px 0}
-.row label{width:86px; font-size:12px; color:var(--ink-dim)}
-.row input[type="range"]{flex:1}
-.row input[type="color"]{width:32px; height:22px; padding:0; border:0; background:transparent;}
-
-/* グリッド表示用 */
-.grid{position:absolute; inset:var(--topbar-h) 0 0 0; pointer-events:none; background-size:10mm 10mm; background-position:0 0; opacity:.18; display:none}
-.grid.show{display:block}
-
-/* スマホの縦書き化を強制横書きで固定 */
-.topbar, .topbar *{ writing-mode:horizontal-tb !important; text-orientation:mixed !important; white-space:nowrap; }
-
-/* モバイルでブラウザがジェスチャを奪わない */
-#stage, canvas{ touch-action:none; -webkit-user-select:none; user-select:none; }
-html, body{ overscroll-behavior:none; }
 </style>
 </head>
 <body>
-<div id="wrap">
   <div class="topbar">
-    <b>Note Link mini v0.7.0</b>
-    <button id="btn-undo">undo</button>
-    <button id="btn-redo">redo</button>
+    <span class="badge">Link v0.6.9-fix18 / No.13</span>
+    <button id="btnUndo" class="btn" title="Undo (最大10)">undo</button>
+    <button id="btnRedo" class="btn" title="Redo (最大10)">redo</button>
     <span class="spacer"></span>
-    <button id="btn-print">印刷</button>
-    <button id="btn-png" class="btn-ok">PNG</button>
-    <button id="btn-share">共有</button>
-    <span class="badge">build: mini-fix17</span>
+    <button id="btnPrint" class="btn" title="印刷">印刷</button>
+    <button id="btnPNG" class="btn" title="PNG保存">PNG</button>
+    <button id="btnShare" class="btn" title="共有">共有</button>
+    <span class="badge">build: fix18</span>
   </div>
 
-  <!-- Grid (背景) -->
-  <div id="grid" class="grid"></div>
-
-  <!-- Canvas stage -->
-  <div id="stage">
-    <canvas id="canvas"></canvas>
+  <div id="wrapper">
+    <div id="stage">
+      <div class="sidebar">
+        <button class="tgl foldbar" id="btnFold" title="開閉">
+          <span class="icon-tri"><svg viewBox="0 0 24 24"><path d="M12 7 L6 17 L18 17 Z"/></svg></span>
+        </button>
+        <button class="tgl tool" data-tool="pen" title="ペン"><svg viewBox="0 0 24 24"><path fill="#9fe" d="M5 19l3.2-.8L18 7.4 16.6 6 7 15.6 6.2 19z"/></svg></button>
+        <button class="tgl tool" data-tool="marker" title="マーカー"><svg viewBox="0 0 24 24"><rect x="5" y="6" width="14" height="8" rx="2" fill="#bdf27c"/></svg></button>
+        <button class="tgl tool" data-tool="eraser" title="消しゴム"><svg viewBox="0 0 24 24"><path fill="#fff" d="M3 14l6-6 12 12H11z"/></svg></button>
+        <button class="tgl tool" data-tool="text" title="テキスト (T)"><svg viewBox="0 0 24 24"><path fill="#fff" d="M4 6h16v2h-7v10h-2V8H4z"/></svg></button>
+        <button class="tgl icon-gear" id="btnGear" title="設定"><svg viewBox="0 0 24 24"><path d="M12 8.8a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4Zm8.4 3.2-.9-.7.2-1.1-1-.9-1.1.2-.7-.9-1.2.5-.7-.7-1.1.6-.7-.6-1.1.7-.7-.5-1.2.9-.9-.2-1 .9.2 1.1-.9.7.5 1.2-.7.7.6 1.1-.6.7.7 1.1-.5.7.9 1.2-.2 1.1 1 .9 1.1-.2.7.9 1.2-.5.7.7 1.1-.6.7.6 1.1-.7.7.5 1.2-.9.9.2 1-.9-.2-1.1.9-.7-.5-1.2.7-.7-.6-1.1.6-.7-.7-1.1.5-.7-.9-1.2.2-1.1-1-.9Z"/></svg></button>
+      </div>
+      <div id="canvasWrap">
+        <canvas id="cv"></canvas>
+        <div id="overlay"></div>
+      </div>
+    </div>
   </div>
 
-  <!-- Sidebar -->
-  <div class="sidebar" id="sidebar" data-collapsed="0">
-    <button class="tool arrow" id="btn-toggle" title="折畳み">
-      <svg viewBox="0 0 24 24"><path d="M6 14l6-6 6 6"/></svg>
-      <span class="label">開閉</span>
-    </button>
-    <button class="tool active" data-tool="pen"   title="ペン">
-      <svg viewBox="0 0 24 24"><path d="M3 21l6-2 9-9a2.8 2.8 0 0 0-4-4l-9 9-2 6z"/></svg>
-      <span class="label">ペン</span>
-    </button>
-    <button class="tool" data-tool="marker" title="マーカー">
-      <svg viewBox="0 0 24 24"><path d="M4 20l4-1 8-8M15 5l4 4"/></svg>
-      <span class="label">マーカー</span>
-    </button>
-    <button class="tool" data-tool="eraser" title="消しゴム">
-      <svg viewBox="0 0 24 24"><path d="M3 17l6 6h5l7-7-11-11-7 7zM6 20h5"/></svg>
-      <span class="label">消しゴム</span>
-    </button>
-    <button class="tool" data-tool="text" title="テキスト">
-      <svg viewBox="0 0 24 24"><path d="M4 6h16M12 6v12"/></svg>
-      <span class="label">テキスト</span>
-    </button>
-    <button class="tool" id="btn-gear" title="設定（表示/非表示）">
-      <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm8 4l2 1-2 1a7.8 7.8 0 0 1-.7 1.7l1.3 1.8-1.6 1.6-1.8-1.3c-.55.32-1.13.56-1.74.73L13 22h-2l-1-2.2a7.9 7.9 0 0 1-1.74-.73L6.5 20.4 4.9 18.8 6.2 17a7.8 7.8 0 0 1-.7-1.7L3 13l2-1a7.8 7.8 0 0 1 .73-1.74L4.4 8.5 6 6.9l1.8 1.3A7.8 7.8 0 0 1 9.5 7.5L11 5h2l1 2.2c.61.17 1.19.41 1.74.73L17.6 6.9l1.6 1.6-1.3 1.8c.32.55.56 1.13.73 1.74z"/></svg>
-      <span class="label">設定</span>
-    </button>
+  <!-- ===== 設定パネル（ツールに応じて切替） ===== -->
+  <div id="panel" class="panel" aria-hidden="true">
+    <h4 id="panelTitle">設定</h4>
+    <div id="panelBody"></div>
+    <div class="row" style="justify-content:flex-end">
+      <button id="closePanel" class="btn">閉じる</button>
+    </div>
   </div>
 
-  <!-- Settings Panel -->
-  <div class="panel" id="panel">
-    <h4 id="panel-title">ペン設定</h4>
-
-    <div class="row"><label>色</label>
-      <input type="color" id="ctl-color" value="#cfeea0" />
+  <!-- ===== CHANGELOG（簡略） ===== -->
+  <details style="position:fixed;left:12px;bottom:12px;z-index:30;color:#cfe">
+    <summary>CHANGELOG (tap)</summary>
+    <div style="font:12px/1.6 sans-serif;max-width:680px">
+      <b>2025-09-20 18:40 — v0.6.9-fix12</b> 基本機能一式 / 折畳み / Shift直線 / PNG・印刷・共有 / z-index調整<br>
+      <b>18:55 — v0.6.9-fix13</b> ⚙、上部バー固定、折畳み欠け修正、一筆削除、テキスト枠削除/空枠自動削除<br>
+      <b>v0.6.9-fix14</b> Undo、単位表示、端形状、全消去対象、装飾、スマホ横書き、蛇行防止<br>
+      <b>v0.6.9-fix15</b> 中抜き三角＆回転、Redo/10段、角度HUD、グリッド初実装 ほか<br>
+      <b>v0.6.9-fix16</b> Tアイコン、当たり判定実寸、書字固定徹底、グリッド/角度HUD 継続<br>
+      <b>v0.6.9-fix17</b> モバイルの点化/消失を根治、直線モード（スマホ）<br>
+      <b>v0.6.9-fix18</b> 起動時パネル閉・三角/折畳み修正・DPR補正・印刷白タブ解消・全部盛り
     </div>
-    <div class="row"><label>太さ <span id="val-size">4px</span></label>
-      <input type="range" id="ctl-size" min="1" max="56" step="1" value="4" />
-    </div>
-    <div class="row" id="row-alpha"><label>不透明度 <span id="val-alpha">100%</span></label>
-      <input type="range" id="ctl-alpha" min="5" max="100" step="1" value="100" />
-    </div>
-
-    <div class="row"><label>直線モード</label>
-      <input type="checkbox" id="ctl-straight" />
-      <span style="color:var(--ink-dim);font-size:12px">（モバイル用 / 15°刻み）</span>
-    </div>
-
-    <hr style="border:none;border-top:1px solid rgba(255,255,255,.1); margin:8px 0;">
-    <div class="row"><label>グリッド</label>
-      <input type="checkbox" id="ctl-grid" />
-      <select id="ctl-grid-size">
-        <option value="5">5mm</option>
-        <option value="10" selected>10mm</option>
-      </select>
-      <span style="color:var(--ink-dim);font-size:12px">（表示/非表示）</span>
-    </div>
-
-    <button id="btn-close" class="topbar" style="position:absolute;right:10px;top:10px;height:26px;padding:0 10px;border-radius:8px;">閉じる</button>
-  </div>
-</div>
+  </details>
 
 <script>
-/* =========================
-   Note Link mini core (fix17)
-   ========================= */
-(() => {
-  // --- DOM参照 ---
-  const canvas = document.getElementById('canvas');
-  const grid   = document.getElementById('grid');
-  const ctx = canvas.getContext('2d');
+(()=>{
+// ---------- State ----------
+const dpr = Math.max(1, window.devicePixelRatio || 1);
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d',{alpha:false,desynchronized:true});
+const wrap = document.getElementById('canvasWrap');
+const overlay = document.getElementById('overlay');
 
-  // 上部メニュー
-  const btnUndo = document.getElementById('btn-undo');
-  const btnRedo = document.getElementById('btn-redo');
-  const btnPrint= document.getElementById('btn-print');
-  const btnPNG  = document.getElementById('btn-png');
-  const btnShare= document.getElementById('btn-share');
+let activeTool = 'pen';
+let straightMode = false; // モバイル用
+let straightSnapDeg = 15;
+let markerCap = 'butt'; // 'butt' | 'round'
+let gridOn = false, gridMM = 5, gridAlpha = .2;
 
-  // ツールバー
-  const sidebar= document.getElementById('sidebar');
-  const btnToggle = document.getElementById('btn-toggle');
-  const btnGear = document.getElementById('btn-gear');
-  const toolBtns = [...document.querySelectorAll('.tool[data-tool]')];
+let drawing = false, start = null, last = null, currentPath = null;
+let angleHUD = null; // {x,y,deg,el}
+const paths = []; // {tool, color, size, alpha, cap, points:[{x,y}], type:'pen'|'marker'|'eraser'}
+const texts = []; // {id,x,y,w,h,html}
+const history = [];
+let histPtr = -1;
 
-  // 設定パネル
-  const panel = document.getElementById('panel');
-  const panelTitle = document.getElementById('panel-title');
-  const ctlColor = document.getElementById('ctl-color');
-  const ctlSize  = document.getElementById('ctl-size');
-  const ctlAlpha = document.getElementById('ctl-alpha');
-  const rowAlpha = document.getElementById('row-alpha');
-  const valSize  = document.getElementById('val-size');
-  const valAlpha = document.getElementById('val-alpha');
-  const ctlStraight = document.getElementById('ctl-straight');
-  const ctlGrid = document.getElementById('ctl-grid');
-  const ctlGridSize = document.getElementById('ctl-grid-size');
-  const btnClose = document.getElementById('btn-close');
-
-  // --- 状態 ---
-  const state = {
-    tool:'pen',       // pen | marker | eraser | text
-    color:'#cfeea0',
-    size:4,
-    alpha:1,
-    straight:false,   // モバイル用トグル
-    shift:false,      // PC Shift
-    drawing:false,
-    activeId:null,
-    last:{x:0,y:0},
-    history:[],
-    future:[],
-    maxHist:10,
-  };
-
-  function setCanvasSize(){
-    const r = document.getElementById('stage').getBoundingClientRect();
-    canvas.width  = Math.max(1, Math.floor(r.width  * devicePixelRatio));
-    canvas.height = Math.max(1, Math.floor(r.height * devicePixelRatio));
-    canvas.style.width  = r.width+'px';
-    canvas.style.height = r.height+'px';
-    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
-    drawGrid(); // リサイズ時
+// ---------- Helpers ----------
+const sizeCanvas = ()=>{
+  const r = wrap.getBoundingClientRect();
+  cv.width = Math.floor(r.width * dpr);
+  cv.height = Math.floor(r.height * dpr);
+  cv.style.width = r.width + 'px';
+  cv.style.height = r.height + 'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  renderAll();
+};
+const ptFromEvent = (ev)=>{
+  const rect = cv.getBoundingClientRect();
+  const x = (ev.clientX - rect.left);
+  const y = (ev.clientY - rect.top);
+  return {x,y};
+};
+const pushHistory = ()=>{
+  // 最大10段
+  const snap = JSON.stringify({paths, texts});
+  history.splice(histPtr+1);
+  history.push(snap);
+  if(history.length>10) history.shift();
+  histPtr = history.length-1;
+};
+const restore = (snap)=>{
+  const obj = JSON.parse(snap);
+  paths.length = 0; texts.length = 0;
+  obj.paths.forEach(p=>paths.push(p));
+  obj.texts.forEach(t=>texts.push(t));
+  renderAll();
+};
+const mm2px = (mm)=> mm * 3.779528; // 96dpi換算
+const renderGrid = ()=>{
+  if(!gridOn) return cv.style.background = '';
+  const step = mm2px(gridMM);
+  const a = gridAlpha;
+  // CSS背景で軽量に（2本のリピート線）
+  cv.style.background = `
+    linear-gradient(transparent,transparent),
+    linear-gradient(90deg, rgba(255,255,255,${a}) 1px, transparent 1px),
+    linear-gradient( rgba(255,255,255,${a}) 1px, transparent 1px)`;
+  cv.style.backgroundSize = `${step}px ${step}px, ${step}px ${step}px, ${step}px ${step}px`;
+};
+const drawPath = (p)=>{
+  ctx.save();
+  if(p.tool==='eraser'){ ctx.globalCompositeOperation='destination-out'; ctx.lineWidth=p.size; ctx.lineCap='round'; }
+  else{
+    ctx.globalCompositeOperation='source-over';
+    ctx.strokeStyle=p.color;
+    ctx.globalAlpha=p.alpha;
+    ctx.lineWidth=p.size;
+    ctx.lineCap = p.cap||'round';
+    ctx.lineJoin='round';
   }
-  addEventListener('resize', setCanvasSize, {passive:true});
-  setCanvasSize();
-
-  // ========== グリッド ==========
-  function drawGrid(){
-    const mm = (ctlGrid.checked ? Number(ctlGridSize.value) : 0);
-    grid.classList.toggle('show', mm>0);
-    if(mm===0) return;
-    // 96dpi ≒ 3.78px/mm
-    const px = Math.round(mm * 3.78);
-    grid.style.backgroundImage = `
-      linear-gradient(to right, rgba(255,255,255,.24) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255,255,255,.24) 1px, transparent 1px)
-    `;
-    grid.style.backgroundSize = `${px}px ${px}px, ${px}px ${px}px`;
+  ctx.beginPath();
+  p.points.forEach((pt,i)=> i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y));
+  ctx.stroke();
+  ctx.restore();
+};
+const renderAll = ()=>{
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg');
+  ctx.fillRect(0,0,cv.width/dpr,cv.height/dpr);
+  renderGrid();
+  paths.forEach(drawPath);
+  // angle HUD
+  if(angleHUD){
+    if(!angleHUD.el){
+      const el = document.createElement('div');
+      el.className='angleHUD';
+      overlay.appendChild(el);
+      angleHUD.el = el;
+    }
+    angleHUD.el.textContent = `${angleHUD.deg}°`;
+    angleHUD.el.style.left = angleHUD.x+'px';
+    angleHUD.el.style.top = angleHUD.y+'px';
+  }else{
+    overlay.querySelectorAll('.angleHUD').forEach(n=>n.remove());
   }
-  ctlGrid.addEventListener('change', drawGrid);
-  ctlGridSize.addEventListener('change', drawGrid);
+};
 
-  // ========== ツール切替 ==========
-  function activate(tool){
-    state.tool = tool;
-    toolBtns.forEach(b => b.classList.toggle('active', b.dataset.tool===tool));
-    const titles = {pen:'ペン設定', marker:'マーカー設定', eraser:'消しゴム設定', text:'テキスト設定'};
-    panelTitle.textContent = titles[tool] || '設定';
-    rowAlpha.style.display = (tool==='marker') ? 'flex':'none';
-    panel.classList.add('show'); // いつでも表示切替可
-    updatePreviewLabels();
+// ---------- UI wiring ----------
+const $ = (sel)=>document.querySelector(sel);
+const panel = $('#panel'), panelBody = $('#panelBody'), panelTitle=$('#panelTitle');
+
+const tools = [...document.querySelectorAll('.tool')];
+const setTool = (id)=>{
+  activeTool=id;
+  tools.forEach(b=>b.classList.toggle('active', b.dataset.tool===id));
+};
+setTool('pen');
+
+$('#btnFold').addEventListener('click', e=>{
+  e.preventDefault();
+  document.body.classList.toggle('fold');
+});
+
+$('#btnGear').addEventListener('click', ()=>{
+  // パネルをトグル（起動時は閉）
+  if(panel.style.display==='block'){ panel.style.display='none'; return; }
+  openPanelFor(activeTool);
+});
+$('#closePanel').addEventListener('click', ()=> panel.style.display='none');
+
+tools.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    setTool(btn.dataset.tool);
+    // ツール押下時はパネルは開かない（誤動作防止）
+  }, {passive:true});
+});
+
+// パネル内容
+function openPanelFor(tool){
+  panelTitle.textContent = {
+    pen:'ペン設定', marker:'マーカー設定', eraser:'消しゴム設定', text:'テキスト設定'
+  }[tool] || '設定';
+  panelBody.innerHTML = '';
+  const row = (label,ctrl)=>`<div class="row"><label>${label}</label>${ctrl}</div>`;
+
+  if(tool==='pen' || tool==='marker'){
+    panelBody.insertAdjacentHTML('beforeend',
+      row('色', `<input type="color" id="col" value="#cfe8ff">`) +
+      row('太さ', `<input type="range" id="size" min="1" max="64" value="${tool==='pen'?4:16}"><span id="szv"></span>`) +
+      row('不透明度', `<input type="range" id="alpha" min="5" max="100" value="${tool==='pen'?100:40}"><span id="apv"></span>`) +
+      (tool==='marker'? row('端の形', `<select id="cap" class="select"><option value="butt">□ 角</option><option value="round">● 角</option></select>`):'') +
+      row('直線', `<label style="display:flex;align-items:center;gap:8px"><input id="straight" type="checkbox"> 直線モード（15°刻み）</label>`) +
+      row('グリッド', `<label><input id="gridOn" type="checkbox"> 表示</label>
+        <select id="gridMM" class="select"><option>5mm</option><option>10mm</option></select>
+        <label style="margin-left:8px">濃さ</label><input id="gridA" type="range" min="5" max="60" value="${Math.round(gridAlpha*100)}">`)
+    );
+    panelBody.querySelector('#size').addEventListener('input', e=> $('#szv').textContent = `${e.target.value}px`);
+    panelBody.querySelector('#alpha').addEventListener('input', e=> $('#apv').textContent = `${e.target.value}%`);
+    $('#szv').textContent = `${$('#size').value}px`; $('#apv').textContent = `${$('#alpha').value}%`;
+    const go = $('#gridOn'), gm = $('#gridMM'), ga = $('#gridA');
+    go.checked = gridOn; gm.value = `${gridMM}mm`; ga.value = Math.round(gridAlpha*100);
+    go.oninput = ()=>{ gridOn = go.checked; renderGrid(); };
+    gm.oninput = ()=>{ gridMM = parseInt(gm.value); renderGrid(); };
+    ga.oninput = ()=>{ gridAlpha = parseInt(ga.value)/100; document.documentElement.style.setProperty('--grid-alpha', gridAlpha); renderGrid(); };
+    const straight = $('#straight'); straight.checked = straightMode; straight.oninput = ()=> straightMode = straight.checked;
+    if(tool==='marker'){ const capSel = $('#cap'); capSel.value = markerCap; capSel.oninput = ()=> markerCap = capSel.value; }
   }
-  toolBtns.forEach(btn => btn.addEventListener('click', () => activate(btn.dataset.tool)));
 
-  // 設定コントロール
-  function updatePreviewLabels(){
-    valSize.textContent  = state.size + 'px';
-    valAlpha.textContent = Math.round(state.alpha*100) + '%';
-  }
-  ctlColor.addEventListener('input', e => state.color = e.target.value);
-  ctlSize .addEventListener('input', e => { state.size = +e.target.value; updatePreviewLabels(); });
-  ctlAlpha.addEventListener('input', e => { state.alpha = (+e.target.value)/100; updatePreviewLabels(); });
-  ctlStraight.addEventListener('change', e => state.straight = e.target.checked);
-
-  btnGear.addEventListener('click', () => panel.classList.toggle('show'));
-  btnClose.addEventListener('click', () => panel.classList.remove('show'));
-
-  // 折畳み
-  btnToggle.addEventListener('click', () => {
-    const c = sidebar.getAttribute('data-collapsed') === '1' ? '0' : '1';
-    sidebar.setAttribute('data-collapsed', c);
-  });
-
-  // ========== 直線スナップ ==========
-  function snap15(from, to){
-    const dx = to.x-from.x, dy = to.y-from.y;
-    const ang = Math.atan2(dy, dx);
-    const step = Math.round(ang/(Math.PI/12))*(Math.PI/12);
-    const len = Math.hypot(dx, dy);
-    return { x: from.x + Math.cos(step)*len, y: from.y + Math.sin(step)*len, angle: step };
-  }
-
-  // ========== 履歴 ==========
-  function pushHist(){
-    state.future.length = 0;
-    const img = canvas.toDataURL('image/png');
-    state.history.push(img);
-    if(state.history.length > state.maxHist) state.history.shift();
-  }
-  function restore(img){
-    const image = new Image();
-    image.onload = () => {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.drawImage(image,0,0);
+  if(tool==='eraser'){
+    panelBody.insertAdjacentHTML('beforeend',
+      row('消し幅', `<input type="range" id="esize" min="4" max="64" value="24"><span id="esv">24px</span>`) +
+      row('消し方', `<select id="emode" class="select"><option value="rub">こする</option><option value="stroke">一筆削除</option></select>`) +
+      row('全消去', `<select id="clearTarget" class="select">
+        <option value="draw">① 描画(ペン+マーカー)</option><option value="text">② テキスト</option><option value="all">③ 全部</option></select>
+        <button id="btnClear" class="btn" style="background:#b22;color:#fff">実行</button>`)
+    );
+    panelBody.querySelector('#esize').addEventListener('input', e=> $('#esv').textContent = `${e.target.value}px`);
+    $('#btnClear').onclick = ()=>{
+      const v = $('#clearTarget').value;
+      if(v==='draw') paths.length = 0;
+      if(v==='text'){ document.querySelectorAll('.textbox').forEach(el=>el.remove()); texts.length=0; }
+      if(v==='all'){ paths.length=0; document.querySelectorAll('.textbox').forEach(el=>el.remove()); texts.length=0; }
+      pushHistory(); renderAll();
     };
-    image.src = img;
-  }
-  btnUndo.addEventListener('click', () => {
-    if(!state.history.length) return;
-    const cur = canvas.toDataURL('image/png');
-    state.future.push(cur);
-    restore(state.history.pop());
-  });
-  btnRedo.addEventListener('click', () => {
-    if(!state.future.length) return;
-    const img = state.future.pop();
-    pushHist(); // 現在を履歴へ
-    restore(img);
-  });
-
-  // ========== 座標変換 ==========
-  function rect(){ return canvas.getBoundingClientRect(); }
-  function pt(e){
-    const r = rect();
-    const x = (e.clientX - r.left) * (canvas.width / r.width);
-    const y = (e.clientY - r.top)  * (canvas.height/ r.height);
-    return {x,y};
   }
 
-  // ========== 描画 ==========
-  function applyStrokeStyle(){
-    ctx.lineWidth = state.size;
-    ctx.strokeStyle = state.color;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.globalCompositeOperation = 'source-over';
-    if(state.tool==='marker'){
-      ctx.globalAlpha = state.alpha;
+  if(tool==='text'){
+    panelBody.insertAdjacentHTML('beforeend',
+      row('文字サイズ', `<input id="tSize" type="range" min="10" max="64" value="20"><span id="tsv">20px</span>`) +
+      row('', `<button id="btnAddText" class="btn">テキストを追加</button>
+               <button id="btnDelSel" class="btn" style="background:#b22;color:#fff">選択テキスト削除</button>`)
+    );
+    const tSize=$('#tSize'); const tsv=$('#tsv'); tsv.textContent=`${tSize.value}px`;
+    tSize.oninput = ()=>{ tsv.textContent=`${tSize.value}px`; const sel = document.activeElement?.closest('.textbox'); if(sel){ sel.style.fontSize = tSize.value+'px'; snapshotTexts(); } };
+    $('#btnAddText').onclick = ()=> addTextbox();
+    $('#btnDelSel').onclick = ()=>{ const sel = document.activeElement?.closest('.textbox'); if(sel){ sel.remove(); snapshotTexts(); pushHistory(); } };
+  }
+
+  // ドラッグ移動
+  let drag=false, dx=0, dy=0;
+  panel.onpointerdown = (e)=>{ drag=true; panel.classList.add('dragging'); dx=e.clientX-panel.offsetLeft; dy=e.clientY-panel.offsetTop; panel.setPointerCapture(e.pointerId); }
+  panel.onpointermove = (e)=>{ if(!drag) return; panel.style.left=(e.clientX-dx)+'px'; panel.style.top=(e.clientY-dy)+'px'; }
+  panel.onpointerup = ()=>{ drag=false; panel.classList.remove('dragging'); }
+
+  panel.style.display='block';
+}
+
+// ---------- Text boxes ----------
+function addTextbox(){
+  const el = document.createElement('div');
+  el.className='textbox'; el.contentEditable='true';
+  el.style.left = 80 + texts.length*12 + 'px';
+  el.style.top = 120 + texts.length*12 + 'px';
+  el.style.fontSize = ($('#tSize')?.value || 20)+'px';
+  const h = document.createElement('div'); h.className='handle'; h.textContent='×'; h.title='削除';
+  h.onclick = ()=>{ el.remove(); snapshotTexts(); pushHistory(); };
+  el.appendChild(h);
+  wrap.appendChild(el);
+  el.focus();
+  el.addEventListener('input', ()=> snapshotTexts());
+  el.addEventListener('blur', ()=>{ if(el.textContent.trim()===''){ el.remove(); snapshotTexts(); pushHistory(); }});
+  draggable(el);
+  snapshotTexts(); pushHistory();
+}
+function snapshotTexts(){
+  texts.length=0;
+  document.querySelectorAll('.textbox').forEach(tb=>{
+    const r = tb.getBoundingClientRect(); const wr = wrap.getBoundingClientRect();
+    texts.push({id:tb.id||'', x:r.left-wr.left, y:r.top-wr.top, w:r.width, h:r.height, html:tb.innerHTML, fs:tb.style.fontSize});
+  });
+}
+// 汎用ドラッグ
+function draggable(node){
+  let drag=false, ox=0, oy=0;
+  node.onpointerdown = (e)=>{ if(e.target.classList.contains('handle')) return; drag=true; ox=e.clientX-node.offsetLeft; oy=e.clientY-node.offsetTop; node.setPointerCapture(e.pointerId); };
+  node.onpointermove = (e)=>{ if(!drag) return; node.style.left=(e.clientX-ox)+'px'; node.style.top=(e.clientY-oy)+'px'; };
+  node.onpointerup = ()=>{ if(!drag) return; drag=false; snapshotTexts(); pushHistory(); };
+}
+
+// ---------- Drawing ----------
+function beginStroke(pt){
+  drawing = true;
+  start = last = pt;
+  angleHUD = null;
+
+  if(activeTool==='eraser'){
+    const size = +($('#esize')?.value || 24);
+    currentPath = {tool:'eraser', size, points:[pt]};
+  }else{
+    const color = $('#col')?.value || (activeTool==='marker' ? '#b9df7a' : '#cfe8ff');
+    const size = +($('#size')?.value || (activeTool==='marker'?16:4));
+    const alpha = (+($('#alpha')?.value || (activeTool==='marker'?40:100)))/100;
+    const cap = activeTool==='marker' ? (markerCap) : 'round';
+    currentPath = {tool:activeTool, color, size, alpha, cap, points:[pt]};
+  }
+}
+function continueStroke(pt){
+  if(!drawing) return;
+  if((straightMode || (event.shiftKey && activeTool!=='eraser')) && (activeTool==='pen'||activeTool==='marker')){
+    // 直線モード
+    const dx = pt.x - start.x, dy = pt.y - start.y;
+    const ang = Math.atan2(dy,dx);
+    const snap = Math.round(ang/(Math.PI*straightSnapDeg/180))* (Math.PI*straightSnapDeg/180);
+    const len = Math.hypot(dx,dy);
+    const nx = start.x + Math.cos(snap)*len;
+    const ny = start.y + Math.sin(snap)*len;
+    currentPath.points = [start,{x:nx,y:ny}];
+    angleHUD = {x:nx,y:ny,deg:Math.round(snap*180/Math.PI)};
+    // グリッドがONなら端点を最寄りグリッドに寄せる
+    if(gridOn){
+      const s = mm2px(gridMM);
+      currentPath.points[1].x = Math.round(nx/s)*s;
+      currentPath.points[1].y = Math.round(ny/s)*s;
+      angleHUD.x = currentPath.points[1].x; angleHUD.y = currentPath.points[1].y;
+    }
+  }else{
+    currentPath.points.push(pt);
+    angleHUD = null;
+  }
+  renderAll(); drawPath(currentPath);
+  last = pt;
+}
+function endStroke(){
+  if(!drawing) return;
+  drawing = false;
+  if(currentPath){
+    paths.push(currentPath);
+    currentPath = null;
+    pushHistory(); renderAll();
+  }
+}
+
+cv.addEventListener('pointerdown', (e)=>{
+  e.preventDefault();
+  cv.setPointerCapture(e.pointerId);
+  beginStroke(ptFromEvent(e));
+},{passive:false});
+cv.addEventListener('pointermove', (e)=>{
+  if(!drawing) return;
+  continueStroke(ptFromEvent(e));
+},{passive:true});
+cv.addEventListener('pointerup', (e)=>{ endStroke(); },{passive:true});
+cv.addEventListener('pointercancel', ()=>{ drawing=false; currentPath=null; },{passive:true});
+
+// ---------- Undo/Redo ----------
+const btnUndo = document.getElementById('btnUndo');
+const btnRedo = document.getElementById('btnRedo');
+btnUndo.addEventListener('click', (e)=>{ e.preventDefault(); if(histPtr>0){ histPtr--; restore(history[histPtr]); }});
+btnRedo.addEventListener('click', (e)=>{ e.preventDefault(); if(histPtr<history.length-1){ histPtr++; restore(history[histPtr]); }});
+
+// ---------- Export / Print / Share ----------
+document.getElementById('btnPNG').addEventListener('click', async ()=>{
+  cv.toBlob((blob)=>{
+    const name = `note-${Date.now()}.png`;
+    if(navigator.canShare && navigator.canShare({files:[new File([blob],name,{type:'image/png'})]})){
+      navigator.share({files:[new File([blob],name,{type:'image/png'})]}).catch(()=>{});
     }else{
-      ctx.globalAlpha = 1;
-    }
-    if(state.tool==='eraser'){
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.strokeStyle = 'rgba(0,0,0,1)';
-    }
-  }
-
-  function start(e){
-    e.preventDefault();
-    state.drawing = true;
-    state.activeId = e.pointerId;
-    canvas.setPointerCapture(state.activeId);
-    state.last = pt(e);
-    pushHist(); // 開始時点を保存
-    applyStrokeStyle();
-  }
-  function move(e){
-    if(!state.drawing || e.pointerId !== state.activeId) return;
-    e.preventDefault();
-    let cur = pt(e);
-    const straight = state.straight || state.shift;
-    if(straight){
-      cur = snap15(state.last0 ?? state.last, cur); // 始点固定
-    }
-    ctx.beginPath();
-    ctx.moveTo(state.last.x, state.last.y);
-    ctx.lineTo(cur.x, cur.y);
-    ctx.stroke();
-    state.last = cur;
-    if(state.last0 === undefined) state.last0 = state.last; // 初回保存
-  }
-  function end(e){
-    if(e.pointerId !== state.activeId) return;
-    e.preventDefault();
-    canvas.releasePointerCapture(state.activeId);
-    state.drawing = false;
-    state.activeId = null;
-    state.last0 = undefined;
-  }
-
-  canvas.addEventListener('pointerdown', start, {passive:false});
-  canvas.addEventListener('pointermove', move,  {passive:false});
-  canvas.addEventListener('pointerup',   end,   {passive:false});
-  canvas.addEventListener('pointercancel', end, {passive:false});
-
-  // PC: Shift 監視
-  addEventListener('keydown', e => { if(e.key==='Shift') state.shift = true; }, {passive:true});
-  addEventListener('keyup',   e => { if(e.key==='Shift') state.shift = false;}, {passive:true});
-
-  // iOS/Android のジェスチャ抑止（保険）
-  addEventListener('touchmove', e => e.preventDefault(), {passive:false});
-
-  // ========== テキスト ==========
-  // 最小実装：Tツール中にキャンバスをクリックでテキスト追加
-  canvas.addEventListener('pointerdown', (e)=>{
-    if(state.tool!=='text') return;
-    const p = pt(e);
-    const div = document.createElement('div');
-    div.contentEditable = "true";
-    div.textContent = "テキスト";
-    Object.assign(div.style,{
-      position:'absolute', left:(p.x/devicePixelRatio)+'px', top:(p.y/devicePixelRatio)+'px',
-      minWidth:'40px', color:'#fff', padding:'2px 6px',
-      background:'rgba(0,0,0,.2)', border:'1px solid rgba(255,255,255,.2)', borderRadius:'6px'
-    });
-    document.getElementById('stage').appendChild(div);
-    div.focus();
-  }, {passive:false});
-
-  // ========== 出力 ==========
-  btnPNG.addEventListener('click', () => {
-    const url = canvas.toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = url; a.download = 'note.png'; a.click();
-  });
-  btnPrint.addEventListener('click', () => {
-    const w = window.open('','_blank');
-    const url = canvas.toDataURL('image/png');
-    w.document.write(`<img src="${url}" style="width:100%">`);
-    w.document.close(); w.focus(); w.print();
-  });
-  btnShare.addEventListener('click', async () => {
-    const shareUrl = location.href;
-    if(navigator.share){
-      try{ await navigator.share({title:document.title, url:shareUrl}); }catch{}
-    }else{
-      await navigator.clipboard.writeText(shareUrl);
-      alert('URLをクリップボードにコピーしました');
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     }
   });
+});
+document.getElementById('btnShare').addEventListener('click', async ()=>{
+  document.getElementById('btnPNG').click();
+});
+document.getElementById('btnPrint').addEventListener('click', ()=>{
+  cv.toBlob(blob=>{
+    const url = URL.createObjectURL(blob);
+    const iframe = document.createElement('iframe');
+    iframe.style.position='fixed'; iframe.style.right='0'; iframe.style.bottom='0'; iframe.style.width='0'; iframe.style.height='0'; iframe.style.border='0';
+    document.body.appendChild(iframe);
+    iframe.onload = ()=>{
+      const doc = iframe.contentDocument;
+      doc.body.innerHTML = `<img src="${url}" style="width:100%;max-width:100%">`;
+      setTimeout(()=>{ iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(()=>{ URL.revokeObjectURL(url); iframe.remove(); }, 500); }, 100);
+    };
+    iframe.src = 'about:blank';
+  });
+});
 
-  // 初期値をUIへ反映
-  ctlColor.value = state.color;
-  ctlSize.value = state.size;
-  ctlAlpha.value = 100;
-  updatePreviewLabels();
-  activate('pen'); // 初期ツール
+// ---------- Boot ----------
+sizeCanvas();
+window.addEventListener('resize', sizeCanvas, {passive:true});
+pushHistory(); // 初期スナップショット
+// 起動時に設定パネルは開かない（報告対応）
+panel.style.display = 'none';
+
+// 初期レンダ
+renderAll();
+
+// クリックズーム誤発火対策
+document.querySelectorAll('button,.tgl').forEach(b=>{
+  b.addEventListener('click', e=> e.preventDefault(), {passive:false});
+});
 })();
 </script>
 </body>
