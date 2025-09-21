@@ -2,505 +2,283 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Note Link mini – v0.6.9-fix18 / No.13</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Note Link mini – v0.6.9-fix18-toolbar-hotfix</title>
 <style>
+/* -------------------------------------------------------
+   Note Link UI (toolbar-only hotfix)
+   version : v0.6.9-fix18-toolbar-hotfix / No.13
+   purpose : △/▽ 折畳み、緑の選択ライン、上部バー直下に固定、
+             折畳み時 45px、z-index/クリック不能対策、
+             ギア(⚙)で現在ツールのパネル表示/非表示
+   author  : ChatGPT
+--------------------------------------------------------*/
+
+/* ===== Theme tokens ===== */
 :root{
-  --ink:#e6f1ff; --ink-dim:#98d6e9; --bg:#0b1020;
-  --panel:#0f1426; --muted:#2a3750; --accent:#447bff; --accent-weak:#2a54ff;
-  --danger:#ff5c7a; --ok:#1ad19f; --shadow:0 10px 24px rgba(0,0,0,.45);
-  --topbar-h:44px; --toolbar-w:56px; --gap:0px;
+  --ink:#e6f1ff;           /* 文字/アイコン */
+  --ink-dim:#9bd6e9;       /* 補助文字 */
+  --bg:#0b1020;            /* 背景 */
+  --panel:#0f1420;         /* 設定パネル */
+  --accent:#44a7ff;        /* 上部バーの青 */
+  --accent-weak:#2a54ff;   /* 影の青味 */
+  --ok:#2dd4bf;            /* 緑(選択の枠) */
+  --danger:#ff4444;        /* 破壊操作 */
+  --muted:#27324a;         /* 線/境界 */
+  --shadow:0 10px 24px rgba(0,0,0,.45);
 }
+
+/* ===== Reset-ish ===== */
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Hiragino Kaku Gothic ProN","Meiryo",sans-serif;overflow:hidden}
+html{background:var(--bg);color:var(--ink);
+  font-family:system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;}
+a{color:inherit}
 
-/* ===== Top bar ===== */
-.topbar{position:sticky;top:0;left:0;right:0;height:var(--topbar-h);
-  display:flex;align-items:center;gap:8px;padding:0 10px;
-  background:linear-gradient(0deg,rgba(42,84,255,.25),rgba(68,123,255,.35));
-  border-bottom:1px solid rgba(255,255,255,.15); z-index:20;
-  writing-mode:horizontal-tb !important; text-orientation:mixed !important;
+/* ===== Topbar ===== */
+:root{ --topbar-h:44px; --toolbar-w:56px; }
+header.topbar{
+  position:sticky; top:0; left:0; right:0; z-index:60;
+  height:var(--topbar-h);
+  display:flex; align-items:center; gap:8px;
+  padding:0 10px; color:#fff; font-size:12px;
+  background:linear-gradient(0deg, rgba(42,84,255,.16), rgba(42,84,255,.16)), var(--accent);
+  border-bottom:1px solid rgba(255,255,255,.15);
+  box-shadow:0 1px 0 rgba(0,0,0,.6) inset;
 }
-.topbar .spacer{flex:1}
-.btn{height:28px;padding:0 10px;border-radius:10px;display:inline-flex;align-items:center;gap:6px;
-  font-size:12px;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);
-  transform:translateY(0); transition:.15s ease; touch-action:manipulation;
+header.topbar .spacer{ flex:1 }
+header.topbar .btn{
+  height:28px; padding:0 10px; border-radius:10px; display:inline-flex; align-items:center; gap:6px;
+  background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.22); color:#fff;
 }
-.btn:active{transform:translateY(1px)}
-.badge{opacity:.65;font-size:11px;padding:2px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.18)}
+header.topbar .btn:active{ transform:translateY(1px); }
+header.topbar .build{ opacity:.8 }
 
-/* ===== Stage layout ===== */
-#wrapper{position:relative;width:100vw;height:calc(100vh - var(--topbar-h) - var(--gap));}
-#stage{position:absolute;inset:0;display:grid;grid-template-columns:var(--toolbar-w) 1fr;}
+/* ===== Wrap / Stage ===== */
+#wrap{ position:relative; }
+#stage{ position:absolute; inset:0;
+  /* ここに既存のキャンバスが重なっていてもOK。UIは z-index で前面 */
+}
 
-/* ===== Toolbar ===== */
-.sidebar{background:#000; width:var(--toolbar-w); padding:6px; border-radius:12px; box-shadow:0 0 0 1px rgba(255,255,255,.08) inset; 
-  height:100%; display:flex; flex-direction:column; align-items:center; gap:10px; padding-top:14px; z-index:11; }
-.tgl{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.06);display:grid;place-items:center;
-  border:1px solid rgba(255,255,255,.1); cursor:pointer; position:relative; outline:0; }
-.tgl svg{width:18px;height:18px}
-.tgl:hover{outline:2px solid rgba(79,124,255,.35)}
-.tgl.active{outline:2px solid var(--ok)}
-.tgl:focus-visible{outline:2px solid #fff}
-.tgl.icon-gear svg{filter:drop-shadow(0 0 0 transparent)} /* 純白ギア */
-.icon-gear svg path{fill:#fff}
-.icon-tri svg{fill:none;stroke:#ddd;stroke-width:2}
-.icon-tri.folded svg{transform:rotate(180deg)}
-/* 畳みバー */
-.foldbar{position:absolute;left:6px;top:6px;width:36px;height:36px;z-index:12}
+/* ===== Sidebar (Tool bar) ===== */
+.sidebar{
+  position:fixed; z-index:58; left:0; top:var(--topbar-h); bottom:0;
+  width:var(--toolbar-w);
+  display:flex; flex-direction:column; align-items:center;
+  background:rgba(0,0,0,.82); box-shadow:0 0 0 1px var(--muted) inset;
+}
+.sidebar .rail{ width:100%; padding:6px; display:flex; flex-direction:column; gap:8px; }
+.tool{
+  display:grid; place-items:center; width:100%; height:36px;
+  border-radius:10px; cursor:pointer; user-select:none;
+  background:rgba(25,25,35,.65); outline:2px solid rgba(79,124,255,.35); outline-offset:0;
+  border:1px solid rgba(45,55,104,.65);
+  box-shadow:0 0 0 2px rgba(0,0,0,.12);
+}
+.tool svg{ width:18px; height:18px; stroke:var(--ink); fill:none; stroke-width:2.2; }
+.tool:hover{ outline:2px solid rgba(79,124,255,.55); }
+.tool.active{ outline:2px solid var(--ok); }
+.tool[data-tool="toggle"] svg{ transform:rotate(0deg); transition:transform .2s ease; }
+.sidebar.collapsed .tool[data-tool="toggle"] svg{ transform:rotate(180deg); }
+/* 折畳み：45px 高さで▽のみ残す */
+.sidebar.collapsed .rail > .tool:not([data-tool="toggle"]){ display:none; }
+.sidebar.collapsed{ width:var(--toolbar-w); }
+.sidebar.collapsed .rail{ padding-top:6px; }
+.sidebar.collapsed{ clip-path:inset(0 0 calc(100% - 45px) 0); }
 
-/* 折畳み時：高さ45pxにして▽のみ残す */
-body.fold #wrapper{height:45px}
-body.fold #stage{grid-template-columns:var(--toolbar-w) 0}
-body.fold .sidebar{height:45px;align-items:flex-start}
-body.fold .sidebar > .tgl:not(.foldbar){display:none}
-body.fold .foldbar .icon-tri svg{transform:rotate(180deg)}
+/* 常時青になるバグ対策：選択は .active のみ */
+.tool:focus-visible{ outline:2px dashed var(--ink-dim); }
 
-/* ===== Canvas ===== */
-#canvasWrap{position:relative;overflow:hidden}
-canvas{display:block;width:100%;height:100%;touch-action:none;background:
-  radial-gradient(rgba(255,255,255,.04) 1px, transparent 1px);}
-#overlay{position:absolute;inset:0;pointer-events:none}
-.angleHUD{position:absolute;transform:translate(-50%,-120%);font-size:12px;padding:2px 6px;border-radius:8px;background:#222a;border:1px solid #fff3}
+/* ===== Floating panel (設定) ===== */
+.panel{
+  position:absolute; z-index:59; left:64px; top:calc(var(--topbar-h) + 10px);
+  min-width:320px; padding:14px 14px 10px; border-radius:14px;
+  color:var(--ink); background:var(--panel); border:1px solid rgba(255,255,255,.14);
+  box-shadow:var(--shadow); display:none;
+}
+.panel.show{ display:block; }
+.panel .row{ display:flex; align-items:center; gap:10px; margin:10px 0; }
+.panel .row label{ width:76px; font-size:12px; color:var(--ink-dim) }
+.panel .close{
+  position:absolute; right:10px; top:10px; height:26px; padding:0 10px; border-radius:8px;
+  border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); color:var(--ink); font-size:12px;
+}
 
-/* ===== Panels ===== */
-.panel{position:absolute;left:62px;top:56px;min-width:320px;z-index:15;background:rgba(12,17,27,.95);
-  border:1px solid rgba(255,255,255,.14); border-radius:12px; padding:12px; box-shadow:var(--shadow); display:none}
-.panel.dragging{cursor:grabbing}
-.panel h4{margin:8px 0 10px 0}
-.row{display:flex;align-items:center;gap:10px;margin:10px 0}
-.row label{width:92px;font-size:12px;color:var(--ink-dim)}
-.panel input[type="color"]{width:34px;height:22px;padding:0;border:0;background:transparent}
-.panel input[type="range"]{flex:1}
-.select{appearance:none;background:#121a2a;color:#fff;border:1px solid #fff2;border-radius:8px;padding:6px 24px 6px 8px}
+/* ===== Tips (ホバーのラベル) ===== */
+[data-tip]{ position:relative; }
+[data-tip]::after{
+  content:attr(data-tip); position:absolute; left:48px; top:50%; transform:translateY(-50%);
+  background:#222a; color:#fff; font-size:12px; padding:4px 8px; border-radius:8px; white-space:nowrap;
+  pointer-events:none; opacity:0; translate:0 -4px; transition:.15s;
+}
+[data-tip]:hover::after{ opacity:1; translate:0 0; }
 
-/* グリッド明度 */
-:root{--grid-alpha:.2}
-.grid-on canvas{background:
-  linear-gradient(transparent,transparent),
-  linear-gradient(90deg, rgba(255,255,255,var(--grid-alpha)) 1px, transparent 1px),
-  linear-gradient(rgba(255,255,255,var(--grid-alpha)) 1px, transparent 1px);}
-
-/* テキストボックス */
-.textbox{position:absolute;min-width:120px;min-height:28px;padding:6px 8px;background:transparent;color:#fff;
-  border:1px dashed rgba(255,255,255,.25); border-radius:8px; outline:none; }
-.textbox:focus{border-style:solid}
-.textbox .handle{position:absolute;right:-10px;top:-10px;width:20px;height:20px;border-radius:50%;background:#222a;border:1px solid #fff3;display:grid;place-items:center;font-size:12px}
-
-/* 上部バーの横書き固定（スマホ対策） */
-.topbar, .topbar *{writing-mode:horizontal-tb !important;text-orientation:mixed !important}
-
-/* 小さめ端末でのボタン配置 */
-@media (max-width:600px){
-  .btn{padding:0 8px}
-  .panel{min-width:300px}
+/* ===== Layout safety ===== */
+#wrap, #stage{ padding-left:var(--toolbar-w); } /* ツールバーが重ならないよう左余白 */
+@media (max-width:480px){
+  .panel{ min-width:280px; }
 }
 </style>
 </head>
 <body>
-  <div class="topbar">
-    <span class="badge">Link v0.6.9-fix18 / No.13</span>
-    <button id="btnUndo" class="btn" title="Undo (最大10)">undo</button>
-    <button id="btnRedo" class="btn" title="Redo (最大10)">redo</button>
-    <span class="spacer"></span>
-    <button id="btnPrint" class="btn" title="印刷">印刷</button>
-    <button id="btnPNG" class="btn" title="PNG保存">PNG</button>
-    <button id="btnShare" class="btn" title="共有">共有</button>
-    <span class="badge">build: fix18</span>
-  </div>
 
-  <div id="wrapper">
-    <div id="stage">
-      <div class="sidebar">
-        <button class="tgl foldbar" id="btnFold" title="開閉">
-          <span class="icon-tri"><svg viewBox="0 0 24 24"><path d="M12 7 L6 17 L18 17 Z"/></svg></span>
-        </button>
-        <button class="tgl tool" data-tool="pen" title="ペン"><svg viewBox="0 0 24 24"><path fill="#9fe" d="M5 19l3.2-.8L18 7.4 16.6 6 7 15.6 6.2 19z"/></svg></button>
-        <button class="tgl tool" data-tool="marker" title="マーカー"><svg viewBox="0 0 24 24"><rect x="5" y="6" width="14" height="8" rx="2" fill="#bdf27c"/></svg></button>
-        <button class="tgl tool" data-tool="eraser" title="消しゴム"><svg viewBox="0 0 24 24"><path fill="#fff" d="M3 14l6-6 12 12H11z"/></svg></button>
-        <button class="tgl tool" data-tool="text" title="テキスト (T)"><svg viewBox="0 0 24 24"><path fill="#fff" d="M4 6h16v2h-7v10h-2V8H4z"/></svg></button>
-        <button class="tgl icon-gear" id="btnGear" title="設定"><svg viewBox="0 0 24 24"><path d="M12 8.8a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4Zm8.4 3.2-.9-.7.2-1.1-1-.9-1.1.2-.7-.9-1.2.5-.7-.7-1.1.6-.7-.6-1.1.7-.7-.5-1.2.9-.9-.2-1 .9.2 1.1-.9.7.5 1.2-.7.7.6 1.1-.6.7.7 1.1-.5.7.9 1.2-.2 1.1 1 .9 1.1-.2.7.9 1.2-.5.7.7 1.1-.6.7.6 1.1-.7.7.5 1.2-.9.9.2 1-.9-.2-1.1.9-.7-.5-1.2.7-.7-.6-1.1.6-.7-.7-1.1.5-.7-.9-1.2.2-1.1-1-.9Z"/></svg></button>
-      </div>
-      <div id="canvasWrap">
-        <canvas id="cv"></canvas>
-        <div id="overlay"></div>
-      </div>
-    </div>
-  </div>
+<header class="topbar" id="topbar" style="writing-mode:horizontal-tb">
+  <strong>Note Link v0.6.9-fix18 / No.13</strong>
+  <span class="spacer"></span>
+  <button class="btn" id="btnUndo">undo</button>
+  <button class="btn" id="btnRedo">redo</button>
+  <button class="btn" id="btnPrint">印刷</button>
+  <button class="btn" id="btnPng">PNG</button>
+  <button class="btn" id="btnShare">共有</button>
+  <span class="build">build: toolbar-hotfix</span>
+</header>
 
-  <!-- ===== 設定パネル（ツールに応じて切替） ===== -->
-  <div id="panel" class="panel" aria-hidden="true">
-    <h4 id="panelTitle">設定</h4>
-    <div id="panelBody"></div>
-    <div class="row" style="justify-content:flex-end">
-      <button id="closePanel" class="btn">閉じる</button>
-    </div>
+<aside class="sidebar" id="sidebar">
+  <div class="rail">
+    <!-- △/▽ トグル（中抜き、回転はCSS） -->
+    <button class="tool active" data-tool="toggle" data-tip="ツールバーの開閉">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 15 L12 7 L19 15" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <!-- ペン -->
+    <button class="tool" data-tool="pen" data-tip="ペン">
+      <svg viewBox="0 0 24 24"><path d="M3 21l4-1 12-12-3-3L4 17l-1 4zM14 6l3 3"/></svg>
+    </button>
+    <!-- マーカー -->
+    <button class="tool" data-tool="marker" data-tip="マーカー">
+      <svg viewBox="0 0 24 24"><path d="M3 16l10-10 5 5-10 10-5 1 1-6zM13 6l5 5"/></svg>
+    </button>
+    <!-- 消しゴム -->
+    <button class="tool" data-tool="eraser" data-tip="消しゴム">
+      <svg viewBox="0 0 24 24"><path d="M3 15l8-8 6 6-6 6H7zM13 7l4 4"/></svg>
+    </button>
+    <!-- テキスト -->
+    <button class="tool" data-tool="text" data-tip="テキスト">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M12 7v10M8 17h8" /></svg>
+    </button>
+    <!-- 設定（⚙） -->
+    <button class="tool" data-tool="settings" data-tip="ツール設定（表示/非表示）">
+      <svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zM4 13h2l1 2  -1 2H4l-1-2 1-2zm14 0h2l1 2-1 2h-2l-1-2 1-2zM8 4h2l2 1 2-1h2l1 2-1 2h-2l-2-1-2 1H8L7 6 8 4z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
   </div>
+</aside>
 
-  <!-- ===== CHANGELOG（簡略） ===== -->
-  <details style="position:fixed;left:12px;bottom:12px;z-index:30;color:#cfe">
-    <summary>CHANGELOG (tap)</summary>
-    <div style="font:12px/1.6 sans-serif;max-width:680px">
-      <b>2025-09-20 18:40 — v0.6.9-fix12</b> 基本機能一式 / 折畳み / Shift直線 / PNG・印刷・共有 / z-index調整<br>
-      <b>18:55 — v0.6.9-fix13</b> ⚙、上部バー固定、折畳み欠け修正、一筆削除、テキスト枠削除/空枠自動削除<br>
-      <b>v0.6.9-fix14</b> Undo、単位表示、端形状、全消去対象、装飾、スマホ横書き、蛇行防止<br>
-      <b>v0.6.9-fix15</b> 中抜き三角＆回転、Redo/10段、角度HUD、グリッド初実装 ほか<br>
-      <b>v0.6.9-fix16</b> Tアイコン、当たり判定実寸、書字固定徹底、グリッド/角度HUD 継続<br>
-      <b>v0.6.9-fix17</b> モバイルの点化/消失を根治、直線モード（スマホ）<br>
-      <b>v0.6.9-fix18</b> 起動時パネル閉・三角/折畳み修正・DPR補正・印刷白タブ解消・全部盛り
-    </div>
-  </details>
+<!-- 設定パネル（今選んでいるツール用。内容は最小） -->
+<div class="panel" id="panel">
+  <button class="close" id="panelClose">閉じる</button>
+  <div class="row"><label>ツール</label><div id="panelToolName">-</div></div>
+  <div class="row"><label>太さ</label><input type="range" min="1" max="40" value="4" id="uiSize"><span id="uiSizeVal">4px</span></div>
+  <div class="row"><label>不透明度</label><input type="range" min="10" max="100" value="100" id="uiAlpha"><span id="uiAlphaVal">100%</span></div>
+</div>
+
+<div id="wrap">
+  <div id="stage"><!-- 既存のキャンバス / 画像 / SVG をここに置く（UIは前面固定） --></div>
+</div>
 
 <script>
-(()=>{
-// ---------- State ----------
-const dpr = Math.max(1, window.devicePixelRatio || 1);
-const cv = document.getElementById('cv');
-const ctx = cv.getContext('2d',{alpha:false,desynchronized:true});
-const wrap = document.getElementById('canvasWrap');
-const overlay = document.getElementById('overlay');
+/* ======================================================
+   Toolbar-only hotfix script
+   - 既存アプリの描画エンジンを壊さないよう、UIイベントを
+     CustomEvent で外へ通知。既存の関数があれば呼ぶ。
+====================================================== */
 
-let activeTool = 'pen';
-let straightMode = false; // モバイル用
-let straightSnapDeg = 15;
-let markerCap = 'butt'; // 'butt' | 'round'
-let gridOn = false, gridMM = 5, gridAlpha = .2;
+const qs = sel => document.querySelector(sel);
+const qsa = sel => Array.from(document.querySelectorAll(sel));
+const sidebar = qs('#sidebar');
+const panel = qs('#panel');
+const panelClose = qs('#panelClose');
+const topbar = qs('#topbar');
 
-let drawing = false, start = null, last = null, currentPath = null;
-let angleHUD = null; // {x,y,deg,el}
-const paths = []; // {tool, color, size, alpha, cap, points:[{x,y}], type:'pen'|'marker'|'eraser'}
-const texts = []; // {id,x,y,w,h,html}
-const history = [];
-let histPtr = -1;
+let currentTool = 'pen';
 
-// ---------- Helpers ----------
-const sizeCanvas = ()=>{
-  const r = wrap.getBoundingClientRect();
-  cv.width = Math.floor(r.width * dpr);
-  cv.height = Math.floor(r.height * dpr);
-  cv.style.width = r.width + 'px';
-  cv.style.height = r.height + 'px';
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  renderAll();
-};
-const ptFromEvent = (ev)=>{
-  const rect = cv.getBoundingClientRect();
-  const x = (ev.clientX - rect.left);
-  const y = (ev.clientY - rect.top);
-  return {x,y};
-};
-const pushHistory = ()=>{
-  // 最大10段
-  const snap = JSON.stringify({paths, texts});
-  history.splice(histPtr+1);
-  history.push(snap);
-  if(history.length>10) history.shift();
-  histPtr = history.length-1;
-};
-const restore = (snap)=>{
-  const obj = JSON.parse(snap);
-  paths.length = 0; texts.length = 0;
-  obj.paths.forEach(p=>paths.push(p));
-  obj.texts.forEach(t=>texts.push(t));
-  renderAll();
-};
-const mm2px = (mm)=> mm * 3.779528; // 96dpi換算
-const renderGrid = ()=>{
-  if(!gridOn) return cv.style.background = '';
-  const step = mm2px(gridMM);
-  const a = gridAlpha;
-  // CSS背景で軽量に（2本のリピート線）
-  cv.style.background = `
-    linear-gradient(transparent,transparent),
-    linear-gradient(90deg, rgba(255,255,255,${a}) 1px, transparent 1px),
-    linear-gradient( rgba(255,255,255,${a}) 1px, transparent 1px)`;
-  cv.style.backgroundSize = `${step}px ${step}px, ${step}px ${step}px, ${step}px ${step}px`;
-};
-const drawPath = (p)=>{
-  ctx.save();
-  if(p.tool==='eraser'){ ctx.globalCompositeOperation='destination-out'; ctx.lineWidth=p.size; ctx.lineCap='round'; }
-  else{
-    ctx.globalCompositeOperation='source-over';
-    ctx.strokeStyle=p.color;
-    ctx.globalAlpha=p.alpha;
-    ctx.lineWidth=p.size;
-    ctx.lineCap = p.cap||'round';
-    ctx.lineJoin='round';
-  }
-  ctx.beginPath();
-  p.points.forEach((pt,i)=> i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y));
-  ctx.stroke();
-  ctx.restore();
-};
-const renderAll = ()=>{
-  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg');
-  ctx.fillRect(0,0,cv.width/dpr,cv.height/dpr);
-  renderGrid();
-  paths.forEach(drawPath);
-  // angle HUD
-  if(angleHUD){
-    if(!angleHUD.el){
-      const el = document.createElement('div');
-      el.className='angleHUD';
-      overlay.appendChild(el);
-      angleHUD.el = el;
-    }
-    angleHUD.el.textContent = `${angleHUD.deg}°`;
-    angleHUD.el.style.left = angleHUD.x+'px';
-    angleHUD.el.style.top = angleHUD.y+'px';
-  }else{
-    overlay.querySelectorAll('.angleHUD').forEach(n=>n.remove());
-  }
-};
+/* ---- 上部バー配下を強制横書き（スマホの縦書き化対策） ---- */
+topbar.style.writingMode = 'horizontal-tb';
 
-// ---------- UI wiring ----------
-const $ = (sel)=>document.querySelector(sel);
-const panel = $('#panel'), panelBody = $('#panelBody'), panelTitle=$('#panelTitle');
-
-const tools = [...document.querySelectorAll('.tool')];
-const setTool = (id)=>{
-  activeTool=id;
-  tools.forEach(b=>b.classList.toggle('active', b.dataset.tool===id));
-};
-setTool('pen');
-
-$('#btnFold').addEventListener('click', e=>{
-  e.preventDefault();
-  document.body.classList.toggle('fold');
-});
-
-$('#btnGear').addEventListener('click', ()=>{
-  // パネルをトグル（起動時は閉）
-  if(panel.style.display==='block'){ panel.style.display='none'; return; }
-  openPanelFor(activeTool);
-});
-$('#closePanel').addEventListener('click', ()=> panel.style.display='none');
-
-tools.forEach(btn=>{
+/* ---- ツール選択・ラインの管理 ---- */
+function setActive(tool){
+  currentTool = tool;
+  qsa('.tool').forEach(b=>b.classList.toggle('active', b.dataset.tool===tool));
+  qs('#panelToolName').textContent = tool;
+  // 既存エンジンへ通知（受け側があれば動く）
+  window.dispatchEvent(new CustomEvent('tool:select', { detail:{ tool } }));
+  if(tool!=='settings'){ hidePanel(); }
+}
+qsa('.tool').forEach(btn=>{
   btn.addEventListener('click', ()=>{
-    setTool(btn.dataset.tool);
-    // ツール押下時はパネルは開かない（誤動作防止）
-  }, {passive:true});
-});
-
-// パネル内容
-function openPanelFor(tool){
-  panelTitle.textContent = {
-    pen:'ペン設定', marker:'マーカー設定', eraser:'消しゴム設定', text:'テキスト設定'
-  }[tool] || '設定';
-  panelBody.innerHTML = '';
-  const row = (label,ctrl)=>`<div class="row"><label>${label}</label>${ctrl}</div>`;
-
-  if(tool==='pen' || tool==='marker'){
-    panelBody.insertAdjacentHTML('beforeend',
-      row('色', `<input type="color" id="col" value="#cfe8ff">`) +
-      row('太さ', `<input type="range" id="size" min="1" max="64" value="${tool==='pen'?4:16}"><span id="szv"></span>`) +
-      row('不透明度', `<input type="range" id="alpha" min="5" max="100" value="${tool==='pen'?100:40}"><span id="apv"></span>`) +
-      (tool==='marker'? row('端の形', `<select id="cap" class="select"><option value="butt">□ 角</option><option value="round">● 角</option></select>`):'') +
-      row('直線', `<label style="display:flex;align-items:center;gap:8px"><input id="straight" type="checkbox"> 直線モード（15°刻み）</label>`) +
-      row('グリッド', `<label><input id="gridOn" type="checkbox"> 表示</label>
-        <select id="gridMM" class="select"><option>5mm</option><option>10mm</option></select>
-        <label style="margin-left:8px">濃さ</label><input id="gridA" type="range" min="5" max="60" value="${Math.round(gridAlpha*100)}">`)
-    );
-    panelBody.querySelector('#size').addEventListener('input', e=> $('#szv').textContent = `${e.target.value}px`);
-    panelBody.querySelector('#alpha').addEventListener('input', e=> $('#apv').textContent = `${e.target.value}%`);
-    $('#szv').textContent = `${$('#size').value}px`; $('#apv').textContent = `${$('#alpha').value}%`;
-    const go = $('#gridOn'), gm = $('#gridMM'), ga = $('#gridA');
-    go.checked = gridOn; gm.value = `${gridMM}mm`; ga.value = Math.round(gridAlpha*100);
-    go.oninput = ()=>{ gridOn = go.checked; renderGrid(); };
-    gm.oninput = ()=>{ gridMM = parseInt(gm.value); renderGrid(); };
-    ga.oninput = ()=>{ gridAlpha = parseInt(ga.value)/100; document.documentElement.style.setProperty('--grid-alpha', gridAlpha); renderGrid(); };
-    const straight = $('#straight'); straight.checked = straightMode; straight.oninput = ()=> straightMode = straight.checked;
-    if(tool==='marker'){ const capSel = $('#cap'); capSel.value = markerCap; capSel.oninput = ()=> markerCap = capSel.value; }
-  }
-
-  if(tool==='eraser'){
-    panelBody.insertAdjacentHTML('beforeend',
-      row('消し幅', `<input type="range" id="esize" min="4" max="64" value="24"><span id="esv">24px</span>`) +
-      row('消し方', `<select id="emode" class="select"><option value="rub">こする</option><option value="stroke">一筆削除</option></select>`) +
-      row('全消去', `<select id="clearTarget" class="select">
-        <option value="draw">① 描画(ペン+マーカー)</option><option value="text">② テキスト</option><option value="all">③ 全部</option></select>
-        <button id="btnClear" class="btn" style="background:#b22;color:#fff">実行</button>`)
-    );
-    panelBody.querySelector('#esize').addEventListener('input', e=> $('#esv').textContent = `${e.target.value}px`);
-    $('#btnClear').onclick = ()=>{
-      const v = $('#clearTarget').value;
-      if(v==='draw') paths.length = 0;
-      if(v==='text'){ document.querySelectorAll('.textbox').forEach(el=>el.remove()); texts.length=0; }
-      if(v==='all'){ paths.length=0; document.querySelectorAll('.textbox').forEach(el=>el.remove()); texts.length=0; }
-      pushHistory(); renderAll();
-    };
-  }
-
-  if(tool==='text'){
-    panelBody.insertAdjacentHTML('beforeend',
-      row('文字サイズ', `<input id="tSize" type="range" min="10" max="64" value="20"><span id="tsv">20px</span>`) +
-      row('', `<button id="btnAddText" class="btn">テキストを追加</button>
-               <button id="btnDelSel" class="btn" style="background:#b22;color:#fff">選択テキスト削除</button>`)
-    );
-    const tSize=$('#tSize'); const tsv=$('#tsv'); tsv.textContent=`${tSize.value}px`;
-    tSize.oninput = ()=>{ tsv.textContent=`${tSize.value}px`; const sel = document.activeElement?.closest('.textbox'); if(sel){ sel.style.fontSize = tSize.value+'px'; snapshotTexts(); } };
-    $('#btnAddText').onclick = ()=> addTextbox();
-    $('#btnDelSel').onclick = ()=>{ const sel = document.activeElement?.closest('.textbox'); if(sel){ sel.remove(); snapshotTexts(); pushHistory(); } };
-  }
-
-  // ドラッグ移動
-  let drag=false, dx=0, dy=0;
-  panel.onpointerdown = (e)=>{ drag=true; panel.classList.add('dragging'); dx=e.clientX-panel.offsetLeft; dy=e.clientY-panel.offsetTop; panel.setPointerCapture(e.pointerId); }
-  panel.onpointermove = (e)=>{ if(!drag) return; panel.style.left=(e.clientX-dx)+'px'; panel.style.top=(e.clientY-dy)+'px'; }
-  panel.onpointerup = ()=>{ drag=false; panel.classList.remove('dragging'); }
-
-  panel.style.display='block';
-}
-
-// ---------- Text boxes ----------
-function addTextbox(){
-  const el = document.createElement('div');
-  el.className='textbox'; el.contentEditable='true';
-  el.style.left = 80 + texts.length*12 + 'px';
-  el.style.top = 120 + texts.length*12 + 'px';
-  el.style.fontSize = ($('#tSize')?.value || 20)+'px';
-  const h = document.createElement('div'); h.className='handle'; h.textContent='×'; h.title='削除';
-  h.onclick = ()=>{ el.remove(); snapshotTexts(); pushHistory(); };
-  el.appendChild(h);
-  wrap.appendChild(el);
-  el.focus();
-  el.addEventListener('input', ()=> snapshotTexts());
-  el.addEventListener('blur', ()=>{ if(el.textContent.trim()===''){ el.remove(); snapshotTexts(); pushHistory(); }});
-  draggable(el);
-  snapshotTexts(); pushHistory();
-}
-function snapshotTexts(){
-  texts.length=0;
-  document.querySelectorAll('.textbox').forEach(tb=>{
-    const r = tb.getBoundingClientRect(); const wr = wrap.getBoundingClientRect();
-    texts.push({id:tb.id||'', x:r.left-wr.left, y:r.top-wr.top, w:r.width, h:r.height, html:tb.innerHTML, fs:tb.style.fontSize});
-  });
-}
-// 汎用ドラッグ
-function draggable(node){
-  let drag=false, ox=0, oy=0;
-  node.onpointerdown = (e)=>{ if(e.target.classList.contains('handle')) return; drag=true; ox=e.clientX-node.offsetLeft; oy=e.clientY-node.offsetTop; node.setPointerCapture(e.pointerId); };
-  node.onpointermove = (e)=>{ if(!drag) return; node.style.left=(e.clientX-ox)+'px'; node.style.top=(e.clientY-oy)+'px'; };
-  node.onpointerup = ()=>{ if(!drag) return; drag=false; snapshotTexts(); pushHistory(); };
-}
-
-// ---------- Drawing ----------
-function beginStroke(pt){
-  drawing = true;
-  start = last = pt;
-  angleHUD = null;
-
-  if(activeTool==='eraser'){
-    const size = +($('#esize')?.value || 24);
-    currentPath = {tool:'eraser', size, points:[pt]};
-  }else{
-    const color = $('#col')?.value || (activeTool==='marker' ? '#b9df7a' : '#cfe8ff');
-    const size = +($('#size')?.value || (activeTool==='marker'?16:4));
-    const alpha = (+($('#alpha')?.value || (activeTool==='marker'?40:100)))/100;
-    const cap = activeTool==='marker' ? (markerCap) : 'round';
-    currentPath = {tool:activeTool, color, size, alpha, cap, points:[pt]};
-  }
-}
-function continueStroke(pt){
-  if(!drawing) return;
-  if((straightMode || (event.shiftKey && activeTool!=='eraser')) && (activeTool==='pen'||activeTool==='marker')){
-    // 直線モード
-    const dx = pt.x - start.x, dy = pt.y - start.y;
-    const ang = Math.atan2(dy,dx);
-    const snap = Math.round(ang/(Math.PI*straightSnapDeg/180))* (Math.PI*straightSnapDeg/180);
-    const len = Math.hypot(dx,dy);
-    const nx = start.x + Math.cos(snap)*len;
-    const ny = start.y + Math.sin(snap)*len;
-    currentPath.points = [start,{x:nx,y:ny}];
-    angleHUD = {x:nx,y:ny,deg:Math.round(snap*180/Math.PI)};
-    // グリッドがONなら端点を最寄りグリッドに寄せる
-    if(gridOn){
-      const s = mm2px(gridMM);
-      currentPath.points[1].x = Math.round(nx/s)*s;
-      currentPath.points[1].y = Math.round(ny/s)*s;
-      angleHUD.x = currentPath.points[1].x; angleHUD.y = currentPath.points[1].y;
+    const t = btn.dataset.tool;
+    if(t==='toggle'){
+      sidebar.classList.toggle('collapsed');
+      return;
     }
-  }else{
-    currentPath.points.push(pt);
-    angleHUD = null;
-  }
-  renderAll(); drawPath(currentPath);
-  last = pt;
-}
-function endStroke(){
-  if(!drawing) return;
-  drawing = false;
-  if(currentPath){
-    paths.push(currentPath);
-    currentPath = null;
-    pushHistory(); renderAll();
-  }
-}
-
-cv.addEventListener('pointerdown', (e)=>{
-  e.preventDefault();
-  cv.setPointerCapture(e.pointerId);
-  beginStroke(ptFromEvent(e));
-},{passive:false});
-cv.addEventListener('pointermove', (e)=>{
-  if(!drawing) return;
-  continueStroke(ptFromEvent(e));
-},{passive:true});
-cv.addEventListener('pointerup', (e)=>{ endStroke(); },{passive:true});
-cv.addEventListener('pointercancel', ()=>{ drawing=false; currentPath=null; },{passive:true});
-
-// ---------- Undo/Redo ----------
-const btnUndo = document.getElementById('btnUndo');
-const btnRedo = document.getElementById('btnRedo');
-btnUndo.addEventListener('click', (e)=>{ e.preventDefault(); if(histPtr>0){ histPtr--; restore(history[histPtr]); }});
-btnRedo.addEventListener('click', (e)=>{ e.preventDefault(); if(histPtr<history.length-1){ histPtr++; restore(history[histPtr]); }});
-
-// ---------- Export / Print / Share ----------
-document.getElementById('btnPNG').addEventListener('click', async ()=>{
-  cv.toBlob((blob)=>{
-    const name = `note-${Date.now()}.png`;
-    if(navigator.canShare && navigator.canShare({files:[new File([blob],name,{type:'image/png'})]})){
-      navigator.share({files:[new File([blob],name,{type:'image/png'})]}).catch(()=>{});
-    }else{
-      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    if(t==='settings'){
+      togglePanel();
+      return;
     }
-  });
-});
-document.getElementById('btnShare').addEventListener('click', async ()=>{
-  document.getElementById('btnPNG').click();
-});
-document.getElementById('btnPrint').addEventListener('click', ()=>{
-  cv.toBlob(blob=>{
-    const url = URL.createObjectURL(blob);
-    const iframe = document.createElement('iframe');
-    iframe.style.position='fixed'; iframe.style.right='0'; iframe.style.bottom='0'; iframe.style.width='0'; iframe.style.height='0'; iframe.style.border='0';
-    document.body.appendChild(iframe);
-    iframe.onload = ()=>{
-      const doc = iframe.contentDocument;
-      doc.body.innerHTML = `<img src="${url}" style="width:100%;max-width:100%">`;
-      setTimeout(()=>{ iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(()=>{ URL.revokeObjectURL(url); iframe.remove(); }, 500); }, 100);
-    };
-    iframe.src = 'about:blank';
+    setActive(t);
   });
 });
 
-// ---------- Boot ----------
-sizeCanvas();
-window.addEventListener('resize', sizeCanvas, {passive:true});
-pushHistory(); // 初期スナップショット
-// 起動時に設定パネルは開かない（報告対応）
-panel.style.display = 'none';
+/* ---- パネルの表示/非表示・ドラッグ移動 ---- */
+function showPanel(){ panel.classList.add('show'); }
+function hidePanel(){ panel.classList.remove('show'); }
+function togglePanel(){ panel.classList.toggle('show'); }
+panelClose.addEventListener('click', hidePanel);
 
-// 初期レンダ
-renderAll();
+// ドラッグ移動（パネル上部どこでも）
+(function makeDraggable(el){
+  let sx=0, sy=0, ox=0, oy=0, dragging=false;
+  el.addEventListener('pointerdown', (e)=>{
+    if(e.button!==0) return;
+    dragging=true; sx=e.clientX; sy=e.clientY;
+    const rect = el.getBoundingClientRect(); ox=rect.left; oy=rect.top;
+    el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener('pointermove', (e)=>{
+    if(!dragging) return;
+    const x = ox + (e.clientX - sx);
+    const y = oy + (e.clientY - sy);
+    el.style.left = Math.max(56, x) + 'px';
+    el.style.top  = Math.max(parseInt(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) + 6, y) + 'px';
+  });
+  el.addEventListener('pointerup', ()=> dragging=false);
+})(panel);
 
-// クリックズーム誤発火対策
-document.querySelectorAll('button,.tgl').forEach(b=>{
-  b.addEventListener('click', e=> e.preventDefault(), {passive:false});
-});
-})();
+/* ---- UI スライダを表示値と連動 ---- */
+const uiSize = qs('#uiSize');
+const uiAlpha = qs('#uiAlpha');
+const uiSizeVal = qs('#uiSizeVal');
+const uiAlphaVal = qs('#uiAlphaVal');
+function syncSliders(){
+  uiSizeVal.textContent = uiSize.value + 'px';
+  uiAlphaVal.textContent = uiAlpha.value + '%';
+  // 外部通知（既存コードが受けるなら反映）
+  window.dispatchEvent(new CustomEvent('tool:param', {
+    detail:{ tool:currentTool, size:+uiSize.value, alpha:+uiAlpha.value/100 }
+  }));
+}
+uiSize.addEventListener('input', syncSliders);
+uiAlpha.addEventListener('input', syncSliders);
+syncSliders();
+
+/* ---- 上部バーのボタン（既存関数があれば呼ぶ） ---- */
+const callIf = (name,...args)=>{
+  if (typeof window[name]==='function'){ try{ window[name](...args); }catch(e){} }
+};
+qs('#btnUndo').addEventListener('click', ()=>{ callIf('appUndo');  window.dispatchEvent(new Event('ui:undo')) });
+qs('#btnRedo').addEventListener('click', ()=>{ callIf('appRedo');  window.dispatchEvent(new Event('ui:redo')) });
+qs('#btnPrint').addEventListener('click',()=>{ callIf('appPrint'); window.dispatchEvent(new Event('ui:print')) });
+qs('#btnPng').addEventListener('click',  ()=>{ callIf('appExportPNG'); window.dispatchEvent(new Event('ui:png')) });
+qs('#btnShare').addEventListener('click',()=>{ callIf('appShare'); window.dispatchEvent(new Event('ui:share')) });
+
+/* ---- 初期状態 ---- */
+setActive('pen');
+hidePanel();
+
+/* ---- クリック不能の根治：UIは z-index 58–60。キャンバスはそれ未満に。 ---- */
+/* このファイルは UI だけなので描画ロジックは不触。既存キャンバスが
+   UIをブロックする場合は #stage 側の z-index を 10 未満にしてください。 */
+
 </script>
 </body>
 </html>
