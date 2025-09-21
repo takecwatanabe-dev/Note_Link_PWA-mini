@@ -1,326 +1,327 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-<title>Note Link mini – launcher fix (R-28｜2025-09-21 23:50 JST)</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Note Link mini – ROLLBACK mini-f20r1 / 2025-09-22 00:20 JST</title>
 <style>
   :root{
-    --ink:#e6f1ff;
-    --bg:#0b0f1a;
-    --panel:#101722;
-    --accent:#4f7cff;
-    --accent-weak:#2a54ff55;
-    --shadow:0 10px 24px rgba(0,0,0,.45);
-    --topbar-h:44px;              /* 実測でJSが上書きします */
-    --toolbar-w:56px;
+    --ink:#e6f1ff; --ink-dim:#a8b5cc;
+    --bg:#0b0f1a; --panel:#0f1724;
+    --accent:#4f7cff; --accent-weak:#2a54ff44;
+    --ok:#20e3c2; --ok-weak:#20e3c288;
+    --topbar-h:44px; --toolbar-w:64px;
   }
-  html,body{height:100%; background:var(--bg); color:var(--ink); margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Hiragino Kaku Gothic ProN","Meiryo",sans-serif;}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Hiragino Kaku Gothic ProN","Meiryo",sans-serif}
   *,*:before,*:after{box-sizing:border-box}
 
-  /* ====== 上部メインバー ====== */
+  /* ===== Top bar (昨日の青い帯) ===== */
   header.topbar{
     position:sticky; top:0; left:0; right:0; z-index:50;
-    height:var(--topbar-h); display:flex; align-items:center; gap:8px;
-    padding:6px 10px;
-    background:linear-gradient(0deg,var(--accent-weak),#2a54ff33);
+    height:var(--topbar-h);
+    display:flex; align-items:center; gap:8px; padding:6px 10px;
+    background:linear-gradient(180deg,var(--accent-weak),#18244a);
     border-bottom:1px solid rgba(255,255,255,.08);
-    backdrop-filter: blur(8px);
   }
-  .topbar .btn{
+  .btn{
     height:28px; padding:0 10px; border-radius:10px; font-size:12px;
     display:inline-flex; align-items:center; justify-content:center;
-    background:rgba(255,255,255,.12); color:var(--ink); border:1px solid rgba(255,255,255,.18);
-    user-select:none; cursor:pointer;
+    color:var(--ink); background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.18); user-select:none; cursor:pointer;
   }
-  .topbar .btn:active{ transform:translateY(1px) }
+  .btn:active{transform:translateY(1px)}
 
-  /* ====== レイアウト ====== */
-  #wrap{ position:relative; }
+  /* ===== Layout ===== */
+  #wrap{position:relative}
   #stage{
     position:absolute; inset:0;
     top:var(--topbar-h);
     padding-left:var(--toolbar-w);
+    overflow:hidden;
   }
-  canvas#paper{ display:block; width:100%; height:100%; }
-
-  /* ====== 左ツールバー（見た目だけ・今回最小） ====== */
+  #vp{position:absolute; inset:0; transform-origin:0 0;}
+  canvas#grid, canvas#paper{position:absolute; left:0; top:0; display:block}
+  canvas#paper{z-index:1;}
+  /* ===== Sidebar（昨日の見た目に戻す） ===== */
   aside.toolbar{
-    position:absolute; top:var(--topbar-h); left:0; bottom:0; width:var(--toolbar-w);
-    display:flex; flex-direction:column; gap:8px; padding:6px;
-    background:rgba(0,0,0,.28); box-shadow:0 0 0 1px rgba(255,255,255,.05) inset;
-    z-index:40;
+    position:absolute; top:var(--topbar-h); left:0; bottom:0;
+    width:var(--toolbar-w); padding:8px 6px;
+    background:rgba(0,0,0,.28); box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);
+    display:flex; flex-direction:column; gap:8px; z-index:40;
   }
   .tool{
-    width:36px; height:36px; border-radius:10px; display:grid; place-items:center;
-    color:var(--ink); cursor:pointer; background:rgba(255,255,255,.06);
-    border:1px solid rgba(255,255,255,.12);
-    outline:2px solid transparent; transition:outline-color .12s ease;
+    width:40px; height:40px; margin:0 auto;
+    border-radius:12px; display:grid; place-items:center;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.16);
+    outline:3px solid transparent; transition:outline-color .12s ease, outline-width .12s ease;
+    color:#fff; cursor:pointer; user-select:none;
   }
-  .tool svg{ width:18px; height:18px }
-  .tool.active{ outline-color:#20e3c2; }          /* 緑の選択枠 */
+  .tool svg{width:20px; height:20px}
+  .tool.active{ outline-color:var(--ok); outline-width:3px }          /* 太めの緑枠（ツール） */
+  .tool.gear.active{ outline-color:var(--ok); outline-width:2px }     /* ⚙ だけ細め */
 
-  /* ====== スタート画面（ランチャー） ====== */
-  #launcher{
-    position:fixed; inset:0; z-index:1000; display:grid; place-items:center;
-    background:rgba(0,0,0,.45);
-    opacity:0; pointer-events:none; transition:opacity .15s ease;
-  }
-  #launcher[data-open="true"]  { opacity:1; pointer-events:auto; }
-  #launcher[data-open="false"] { opacity:0; pointer-events:none; }
+  /* ===== 折り畳み △ / ▽（中抜き三角・昨日サイズ） ===== */
+  .fold{position:absolute; top:8px; left:12px; width:40px}
+  .fold .tool{width:40px;height:40px}
+  .tri{width:18px;height:18px;display:block}
+  .tri path{stroke:#fff;stroke-width:2;fill:none}
+  .fold[data-collapsed="true"] + .stack{display:none}
+  .fold[data-collapsed="true"] .tri{transform:rotate(180deg)}
 
-  .sheet{
-    width:min(920px,92vw);
+  .stack{margin-top:56px; display:flex; flex-direction:column; gap:8px}
+
+  /* ===== パネル（各ツール設定） ===== */
+  .panel{
+    position:absolute; left:70px; top:70px; min-width:300px;
     background:var(--panel); border:1px solid rgba(255,255,255,.12);
-    border-radius:14px; box-shadow:var(--shadow); padding:18px;
+    border-radius:12px; box-shadow:0 12px 28px rgba(0,0,0,.45);
+    padding:14px; display:none; z-index:60;
   }
-  .sheet h2{ margin:4px 0 14px; font-size:16px }
-  .grid3{
-    display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;
-  }
-  .card{
-    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
-    border-radius:12px; padding:14px;
-  }
-  .card h3{ margin:0 0 10px; font-size:14px }
-  .card .btn{ margin-top:8px }
+  .panel.show{display:block}
+  .row{display:flex; align-items:center; gap:10px; margin:8px 0; color:var(--ink)}
+  .row label{width:80px; font-size:12px; color:var(--ink-dim)}
+  .row input[type="range"]{flex:1}
+  .panel .close{position:absolute; right:10px; top:10px; height:26px; padding:0 10px; border-radius:8px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); color:#fff}
+  .hint{font-size:12px; color:var(--ink-dim)}
 
-  /* about:blank抑止のため印刷用の iframe は使わない（同タブ印刷） */
-
-  /* スクロール時の安全策（PWAやモバイルでの余計なジェスチャ抑制） */
-  #stage, canvas{ touch-action:none; }
+  /* スマホでの縦書き化抑止 */
+  *{writing-mode:horizontal-tb}
 </style>
 </head>
 <body>
-  <header class="topbar" id="topbar">
-    <span style="opacity:.75; font-size:12px; padding:0 6px">Note Link v0.7.0 / No.13</span>
-    <span class="spacer" style="flex:1"></span>
-    <button class="btn" id="zoomOut">−</button>
-    <button class="btn" id="zoomReset">100%</button>
-    <button class="btn" id="zoomIn">＋</button>
-    <button class="btn" id="undoBtn">undo</button>
-    <button class="btn" id="redoBtn">redo</button>
-    <button class="btn" id="printBtn">印刷</button>
-    <button class="btn" id="pngBtn">PNG</button>
-    <button class="btn" id="shareBtn">共有</button>
-  </header>
+<header class="topbar" id="topbar">
+  <span style="opacity:.7; font-size:12px">Note Link v0.7.0 / No.13 · build: mini-f20r1</span>
+  <span style="flex:1"></span>
+  <button class="btn" id="zoomOut">−</button>
+  <button class="btn" id="zoomReset">100%</button>
+  <button class="btn" id="zoomIn">＋</button>
+  <button class="btn" id="undoBtn">undo</button>
+  <button class="btn" id="redoBtn">redo</button>
+  <button class="btn" id="printBtn">印刷</button>
+  <button class="btn" id="pngBtn">PNG</button>
+  <button class="btn" id="shareBtn">共有</button>
+</header>
 
-  <div id="wrap">
-    <aside class="toolbar" id="toolbar">
-      <div class="tool active" id="tool-pen" title="ペン">
-        <!-- ペン -->
-        <svg viewBox="0 0 24 24" fill="none"><path d="M3 21l3.5-.7L19 7.8 16.2 5 4.7 16.5 4 20zM14 6l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-      <div class="tool" id="tool-eraser" title="消しゴム">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M6 19h12M3 14l8-8a2 2 0 012.8 0l4.2 4.2a2 2 0 010 2.8l-8 8H7.8a2 2 0 01-1.4-.6L3.6 16a2 2 0 010-2.8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-      <div class="tool" id="tool-hand" title="ハンド">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M8 13V7a1 1 0 012 0v4m2 2V5a1 1 0 012 0v8m2-2V7a1 1 0 012 0v6m-8 3l-1 5h8l4-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-      <div class="tool" id="tool-keyboard" title="テキスト">
-        <!-- キーボード -->
-        <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="7" width="18" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M6 10h2M10 10h2M14 10h2M18 10h0M6 13h8M16 13h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </div>
-      <div class="tool" id="tool-gear" title="設定（今回はダミー）">
-        <!-- ギア（白） -->
-        <svg viewBox="0 0 24 24" fill="none"><path d="M12 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z" stroke="currentColor" stroke-width="2"/><path d="M19 12a7 7 0 01-.1 1.2l2 1.6-2 3.5-2.3-.9a7.2 7.2 0 01-2 .9L14 22h-4l-.6-2.8a7.2 7.2 0 01-2-.9l-2.3.9-2-3.5 2-1.6A7 7 0 015 12c0-.4 0-.8.1-1.2l-2-1.6 2-3.5 2.3.9a7.2 7.2 0 012-.9L10 2h4l.6 2.8a7.2 7.2 0 012 .9l2.3-.9 2 3.5-2 1.6c.1.4.1.8.1 1.2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-    </aside>
-
-    <main id="stage">
-      <canvas id="paper"></canvas>
-    </main>
-  </div>
-
-  <!-- ====== スタート画面（最初は data-open="true"） ====== -->
-  <div id="launcher" data-open="true" aria-modal="true" role="dialog">
-    <div class="sheet">
-      <h2>まず選んでください</h2>
-      <div class="grid3">
-        <section class="card">
-          <h3>① 過去のノートを開く</h3>
-          <div style="opacity:.7">履歴はありません</div>
-        </section>
-        <section class="card">
-          <h3>② 新規ノート作成</h3>
-          <div style="display:flex; gap:8px; align-items:center; margin:8px 0">
-            <label>サイズ
-              <select id="sel-size">
-                <option value="A4" selected>A4</option>
-                <option value="B5">B5</option>
-                <option value="Letter">Letter</option>
-              </select>
-            </label>
-            <label>向き
-              <select id="sel-orient">
-                <option value="p" selected>縦</option>
-                <option value="l">横</option>
-              </select>
-            </label>
-          </div>
-          <button class="btn" id="btn-create">作成</button>
-        </section>
-        <section class="card">
-          <h3>③ 先生からの課題を読み込む</h3>
-          <input type="file" id="pdf-input" accept="application/pdf,image/*" />
-          <div style="opacity:.6; font-size:12px; margin-top:6px">※PDFは1ページ目を画像化して背景に配置します</div>
-          <button class="btn" id="btn-import" style="margin-top:8px">読み込む</button>
-        </section>
+<div id="wrap">
+  <aside class="toolbar">
+    <!-- 折り畳み -->
+    <div class="fold" id="fold" data-collapsed="false">
+      <div class="tool" title="折りたたみ">
+        <svg class="tri" viewBox="0 0 24 24"><path d="M5 15L12 8l7 7"/></svg>
       </div>
     </div>
+    <!-- ツール群（昨日の順） -->
+    <div class="stack" id="toolStack">
+      <div class="tool active" id="t-pen" title="ペン">
+        <svg viewBox="0 0 24 24"><path d="M3 21l3.5-.7L19 7.8 16.2 5 4.7 16.5 4 20zM14 6l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <div class="tool" id="t-marker" title="マーカー">
+        <svg viewBox="0 0 24 24"><path d="M5 15l9-9 4 4-9 9-5 1 1-5z" fill="currentColor"/></svg>
+      </div>
+      <div class="tool" id="t-eraser" title="消しゴム">
+        <svg viewBox="0 0 24 24"><path d="M6 19h12M3 14l8-8a2 2 0 012.8 0l4.2 4.2a2 2 0 010 2.8l-8 8H7.8a2 2 0 01-1.4-.6L3.6 16a2 2 0 010-2.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <div class="tool" id="t-hand" title="ハンド（パン）">
+        <svg viewBox="0 0 24 24"><path d="M8 13V7a1 1 0 012 0v4m2 2V5a1 1 0 012 0v8m2-2V7a1 1 0 012 0v6m-8 3l-1 5h8l4-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <div class="tool" id="t-text" title="テキスト（keyboard）">
+        <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 10h2M10 10h2M14 10h2M6 13h8M16 13h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <div class="tool gear" id="t-gear" title="設定">
+        <svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z" stroke="currentColor" stroke-width="2" fill="none"/><path d="M19 12a7 7 0 01-.1 1.2l2 1.6-2 3.5-2.3-.9a7.2 7.2 0 01-2 .9L14 22h-4l-.6-2.8a7.2 7.2 0 01-2-.9l-2.3.9-2-3.5 2-1.6A7 7 0 015 12c0-.4 0-.8.1-1.2l-2-1.6 2-3.5 2.3.9a7.2 7.2 0 012-.9L10 2h4l.6 2.8a7.2 7.2 0 012 .9l2.3-.9 2 3.5-2 1.6c.1.4.1.8.1 1.2z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <main id="stage">
+    <div id="vp">
+      <canvas id="grid"></canvas>
+      <canvas id="paper"></canvas>
+    </div>
+  </main>
+</div>
+
+<!-- 設定パネル（ツールごと） -->
+<section class="panel" id="panel">
+  <button class="close" id="pClose">閉じる</button>
+  <div class="row"><label>ツール</label><div id="pTool">pen</div></div>
+  <div class="row"><label>色</label><input type="color" id="pColor" value="#cfe9ff"></div>
+  <div class="row"><label>太さ</label><input type="range" id="pSize" min="1" max="40" value="4"><span id="pSizeVal" class="hint">4px</span></div>
+  <div class="row" id="pAlphaRow"><label>不透明度</label><input type="range" id="pAlpha" min="5" max="100" value="100"><span id="pAlphaVal" class="hint">100%</span></div>
+  <div class="row"><label>直線</label><input type="checkbox" id="pLine"> <span class="hint">（PCはShiftでも可）</span></div>
+  <div class="row"><label>グリッド</label>
+    <input type="checkbox" id="gShow"> 表示
+    <select id="gStep"><option value="5">5mm</option><option value="10" selected>10mm</option></select>
   </div>
+</section>
 
 <script>
-/* R-28 launcher-freeze fix: data-open="true/false" を厳密に扱い、
-   閉じてから初期化（1フレーム遅延）で固まりを防止。 */
+/* ========== 通し番号 / 時刻 ==========
+   build: mini-f20r1 / 2025-09-22 00:20 JST
+   目的: ツールバーの見た目と基本挙動を昨日の形へロールバック
+==================================== */
 
-const $ = (s, el=document) => el.querySelector(s);
-const topbar = $('#topbar');
-const stage  = $('#stage');
-const canvas = $('#paper');
-const ctx    = canvas.getContext('2d', {alpha:false, desynchronized:true});
-let dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
-let hist = [], redoStack = [];
-const nextFrame = () => new Promise(r => requestAnimationFrame(()=>setTimeout(r,0)));
+const $=s=>document.querySelector(s);
+const topbar=$('#topbar'), stage=$('#stage'), vp=$('#vp');
+const cGrid=$('#grid'), c=$('#paper'), gtx=cGrid.getContext('2d'), ctx=c.getContext('2d',{alpha:false,desynchronized:true});
+let dpr=Math.max(1,Math.floor(devicePixelRatio||1)), zoom=1, panX=0, panY=0;
 
-function measureTopHeights(){
-  const tb = topbar.getBoundingClientRect();
-  document.documentElement.style.setProperty('--topbar-h', tb.height+'px');
-  // サイドバー top も同期
-  const sidebarTop = tb.height;
-  document.documentElement.style.setProperty('--sidebar-top', sidebarTop+'px');
+function measureTop(){ const r=topbar.getBoundingClientRect(); document.documentElement.style.setProperty('--topbar-h', r.height+'px'); }
+addEventListener('resize',measureTop); addEventListener('orientationchange',measureTop); measureTop();
+
+function fit(){
+  const r=stage.getBoundingClientRect();
+  c.width = Math.max(1,Math.floor(r.width*dpr));
+  c.height= Math.max(1,Math.floor(r.height*dpr));
+  c.style.width=r.width+'px'; c.style.height=r.height+'px';
+  cGrid.width=c.width; cGrid.height=c.height; cGrid.style.width=c.style.width; cGrid.style.height=c.style.height;
+  // CSSスケール
+  vp.style.transform=`translate(${panX}px,${panY}px) scale(${zoom})`;
+  // 初期塗り
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr);
+  ctx.fillStyle="#0c1220"; ctx.fillRect(0,0,r.width,r.height);
+  drawGrid();
 }
-measureTopHeights();
-addEventListener('resize', measureTopHeights);
-addEventListener('orientationchange', measureTopHeights);
-addEventListener('visibilitychange', measureTopHeights);
+new ResizeObserver(fit).observe(stage);
 
-function fitCanvas(){
-  const rect = stage.getBoundingClientRect();
-  const w = Math.max(1, Math.floor(rect.width  * dpr));
-  const h = Math.max(1, Math.floor(rect.height * dpr));
-  if (canvas.width !== w || canvas.height !== h){
-    canvas.width = w; canvas.height = h;
+/* ====== ツール / パネル ====== */
+let tool='pen';
+const tools=['t-pen','t-marker','t-eraser','t-hand','t-text','t-gear'];
+tools.forEach(id=>{
+  $('#'+id).addEventListener('click',()=>{
+    tools.forEach(x=>$('#'+x).classList.remove('active'));
+    $('#'+id).classList.add('active');
+    tool=id.replace('t-','');
+    if(tool==='gear'){ openPanel(); } else { $('#panel').classList.remove('show'); }
+    updatePanelLabels();
+  });
+});
+
+$('#fold .tool').addEventListener('click',()=>{
+  const f=$('#fold');
+  const now=f.getAttribute('data-collapsed')==='true';
+  f.setAttribute('data-collapsed', String(!now));
+});
+
+/* ====== 設定 ====== */
+const p=$('#panel'), pColor=$('#pColor'), pSize=$('#pSize'), pSizeVal=$('#pSizeVal'), pAlpha=$('#pAlpha'), pAlphaVal=$('#pAlphaVal'), pLine=$('#pLine'), pTool=$('#pTool'), gShow=$('#gShow'), gStep=$('#gStep');
+
+function openPanel(){ p.classList.add('show'); }
+$('#pClose').onclick=()=>p.classList.remove('show');
+
+function updatePanelLabels(){
+  pTool.textContent=tool;
+  const isMarker = (tool==='marker');
+  const isEraser = (tool==='eraser');
+  // マーカーのみ不透明度を使う（昨日の仕様）
+  $('#pAlphaRow').style.display = isMarker ? 'flex':'none';
+  // 消しゴムは色不要
+  pColor.parentElement.style.display = isEraser ? 'none':'flex';
+}
+[pColor,pSize,pAlpha,pLine,gShow,gStep].forEach(el=>el.addEventListener('input',()=>{
+  pSizeVal.textContent = pSize.value+'px';
+  pAlphaVal.textContent= pAlpha.value+'%';
+  drawGrid();
+}));
+
+/* ====== グリッド ====== */
+function mm2px(mm){ return mm*3.78 } // 96dpi基準
+function drawGrid(){
+  const r=stage.getBoundingClientRect();
+  gtx.setTransform(1,0,0,1,0,0); gtx.scale(dpr,dpr);
+  gtx.clearRect(0,0,r.width,r.height);
+  if(!gShow.checked) return;
+  const stepMM = parseInt(gStep.value,10);
+  const step = mm2px(stepMM)*zoom; // ズームと連動
+  gtx.strokeStyle='rgba(255,255,255,.08)';
+  gtx.lineWidth=1;
+  gtx.beginPath();
+  for(let x=0; x<=r.width; x+=step){ gtx.moveTo(x,0); gtx.lineTo(x,r.height); }
+  for(let y=0; y<=r.height; y+=step){ gtx.moveTo(0,y); gtx.lineTo(r.width,y); }
+  gtx.stroke();
+}
+
+/* ====== 描画（ロールバック版・素直な挙動） ====== */
+let drawing=false, last=null, shift=false;
+addEventListener('keydown',e=>{ if(e.key==='Shift') shift=true; });
+addEventListener('keyup',e=>{ if(e.key==='Shift') shift=false; });
+
+function pointerPos(e){
+  const rect=c.getBoundingClientRect();
+  const x=(e.clientX-rect.left)/zoom, y=(e.clientY-rect.top)/zoom;
+  return {x,y};
+}
+c.addEventListener('pointerdown',e=>{
+  if(tool==='hand') return;
+  c.setPointerCapture?.(e.pointerId);
+  drawing=true; last=pointerPos(e);
+});
+c.addEventListener('pointermove',e=>{
+  if(!drawing) return;
+  const p=pointerPos(e);
+  ctx.lineCap = (tool==='marker') ? ($('#pLineCap')?.value==='butt'?'butt':'round') : 'round';
+  ctx.lineJoin='round';
+  ctx.strokeStyle = (tool==='eraser') ? '#0c1220' : pColor.value + (tool==='marker' ? Math.round(parseInt(pAlpha.value,10)/100*255).toString(16).padStart(2,'0'):'');
+
+  ctx.lineWidth = (tool==='eraser') ? parseInt(pSize.value,10)*2 : parseInt(pSize.value,10);
+  ctx.globalCompositeOperation = (tool==='eraser') ? 'destination-out' : 'source-over';
+
+  ctx.beginPath();
+  if((shift || pLine.checked) && (tool==='pen' || tool==='marker')){
+    // 直線：始点→現在
+    ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y);
+  }else{
+    ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y);
+    last=p;
   }
-  canvas.style.width  = rect.width + 'px';
-  canvas.style.height = rect.height + 'px';
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.scale(dpr, dpr);
-  ctx.fillStyle = "#0c1220";
-  ctx.fillRect(0,0, rect.width, rect.height);
-}
-new ResizeObserver(fitCanvas).observe(stage);
+  ctx.stroke();
+});
+c.addEventListener('pointerup',()=>{
+  if(drawing){ drawing=false; pushHistory(); ctx.globalCompositeOperation='source-over'; }
+});
 
-function openLauncher(){ const l = $('#launcher'); l?.setAttribute('data-open','true'); }
-function closeLauncher(){ const l = $('#launcher'); l?.setAttribute('data-open','false'); }
-
-function resetNoteState(){
-  hist = []; redoStack = [];
-  ctx.clearRect(0,0, canvas.width, canvas.height);
-  fitCanvas();
-  pushHistory(); // 初期スナップ
-}
-
+/* ====== 履歴（Undo/Redo） ====== */
+let hist=[], redo=[];
 function pushHistory(){
   try{
-    const data = canvas.toDataURL('image/webp', .85);
-    hist.push(data);
-    if (hist.length > 10) hist.shift();
-  }catch(e){ console.warn(e); }
+    const data=c.toDataURL('image/webp',.9);
+    hist.push(data); if(hist.length>10) hist.shift(); redo.length=0;
+    $('#undoBtn').disabled=hist.length<=1; $('#redoBtn').disabled=redo.length===0;
+  }catch(e){console.warn(e)}
 }
-function restoreFrom(dataURL){
-  return new Promise((resolve,reject)=>{
-    const img = new Image();
-    img.onload = ()=>{ fitCanvas(); ctx.drawImage(img,0,0,canvas.clientWidth,canvas.clientHeight); resolve(); };
-    img.onerror = reject;
-    img.src = dataURL;
+async function restore(url){
+  return new Promise((res,rej)=>{
+    const img=new Image(); img.onload=()=>{ const r=stage.getBoundingClientRect(); ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr); ctx.drawImage(img,0,0,r.width,r.height); res(); }; img.onerror=rej; img.src=url;
   });
 }
-$('#undoBtn').addEventListener('click', async ()=>{
-  if (hist.length <= 1) return;
-  const cur = hist.pop(); redoStack.push(cur);
-  const prev = hist[hist.length-1];
-  await restoreFrom(prev);
-});
-$('#redoBtn').addEventListener('click', async ()=>{
-  const pop = redoStack.pop();
-  if (!pop) return;
-  await restoreFrom(pop);
-  hist.push(pop);
-});
+$('#undoBtn').onclick=async ()=>{
+  if(hist.length<=1) return;
+  const cur=hist.pop(); redo.push(cur);
+  await restore(hist[hist.length-1]);
+};
+$('#redoBtn').onclick=async ()=>{
+  const u=redo.pop(); if(!u) return; await restore(u); hist.push(u);
+};
 
-$('#btn-create').addEventListener('click', async (e)=>{
-  e.preventDefault();
-  const btn = e.currentTarget; btn.disabled = true;
+/* ====== ズーム / 共有等 ====== */
+function setZoom(z){ zoom=Math.min(3,Math.max(.5,z)); vp.style.transform=`translate(${panX}px,${panY}px) scale(${zoom})`; drawGrid(); }
+$('#zoomOut').onclick=()=>setZoom(zoom-.1);
+$('#zoomIn').onclick =()=>setZoom(zoom+.1);
+$('#zoomReset').onclick=()=>setZoom(1);
+
+$('#printBtn').onclick=()=>window.print();
+$('#pngBtn').onclick =()=>c.toBlob(b=>{ const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download='note.png'; a.click(); URL.revokeObjectURL(u); },'image/png');
+$('#shareBtn').onclick=async ()=>{
   try{
-    closeLauncher();
-    await nextFrame();    // ← これで「閉じる→初期化」の順が確定し固まりを防ぐ
-    resetNoteState();
-  }catch(err){
-    console.error(err);
-    alert('初期化に失敗しました。もう一度お試しください。');
-    openLauncher();
-  }finally{
-    btn.disabled = false;
-  }
-});
+    if(navigator.canShare){ c.toBlob(async b=>{ const f=new File([b],'note.png',{type:'image/png'}); await navigator.share({files:[f],title:'Note Link'}); },'image/png'); }
+    else $('#pngBtn').click();
+  }catch(e){console.warn(e)}
+};
 
-$('#btn-import').addEventListener('click', async ()=>{
-  const f = $('#pdf-input').files?.[0];
-  if(!f){ alert('ファイルを選択してください'); return; }
-  closeLauncher(); await nextFrame(); resetNoteState();
-  // 簡易: 画像は直接 drawImage、PDF はサーバなしでは扱えないため今回は割愛
-  if (f.type.startsWith('image/')){
-    const url = URL.createObjectURL(f);
-    const img = new Image(); img.src = url;
-    img.onload = () => { fitCanvas(); ctx.drawImage(img, 0,0, canvas.clientWidth, canvas.clientHeight); pushHistory(); URL.revokeObjectURL(url); };
-  } else {
-    alert('PDFの直接描画はこの最小版では未対応です（画像にして読み込んでください）');
-  }
-});
-
-$('#printBtn').addEventListener('click', ()=> window.print());
-$('#pngBtn').addEventListener('click', ()=>{
-  canvas.toBlob(b=>{
-    const u = URL.createObjectURL(b);
-    const a = document.createElement('a');
-    a.href=u; a.download='note.png'; a.click();
-    URL.revokeObjectURL(u);
-  },'image/png');
-});
-$('#shareBtn').addEventListener('click', async ()=>{
-  try{
-    if (navigator.canShare && navigator.canShare()){
-      canvas.toBlob(async b=>{
-        const file = new File([b],'note.png',{type:'image/png'});
-        await navigator.share({files:[file], title:'Note Link', text:'共有'});
-      },'image/png');
-    }else{
-      $('#pngBtn').click();
-    }
-  }catch(e){ console.warn(e); }
-});
-
-/* 簡易のペン（今回の目的はランチャー固まり解消なので最低限） */
-let drawing=false, last=null;
-canvas.addEventListener('pointerdown', (e)=>{
-  canvas.setPointerCapture?.(e.pointerId);
-  drawing=true; last = {x:e.offsetX, y:e.offsetY};
-});
-canvas.addEventListener('pointermove', (e)=>{
-  if(!drawing) return;
-  ctx.strokeStyle = '#cfe9ff';
-  ctx.lineWidth = 2; ctx.lineCap='round';
-  ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke();
-  last = {x:e.offsetX, y:e.offsetY};
-});
-canvas.addEventListener('pointerup', ()=>{
-  if(drawing){ drawing=false; pushHistory(); }
-});
-
-/* 初期表示でランチャーを開く（historyがあれば閉じる運用でもOK） */
-openLauncher();
-fitCanvas();
+/* 初期化 */
+fit(); pushHistory(); // 空白を履歴0とする
+updatePanelLabels();
 </script>
 </body>
 </html>
