@@ -1,446 +1,671 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-<title>Note Link mini – v0.7.0 (mini-fix21-toolbar-restore) / 2025-09-22 08:05 JST</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Note Link mini – single file</title>
 <style>
 :root{
-  --ink:#e6f1ff; --ink-dim:#a8b5cc;
-  --bg:#0b0f1a; --paper:#0c1220; --panel:#101828;
-  --accent:#4f7cff; --accent-weak:#2a54ff44;
-  --ok:#20e3c2; --ok-weak:#20e3c280;
-  --danger:#ff5a7a;
-  --topbar-h:44px; --toolbar-w:64px;
-  --tool-size:44px;         /* fix21相当の大きさ */
-  --tool-radius:12px;
+  --ink:#e6f1ff;            /* 文字/アイコン色 */
+  --ink-dim:#9db6d9;
+  --bg:#0b1020;             /* 背景 */
+  --panel:#0f1420;          /* パネル */
+  --accent:#4f7cff;         /* メインバー */
+  --accent-weak:#2a54ff;    /* メインバー下グラデ */
+  --ok:#19e4c7;             /* 緑（選択） */
+  --muted:#2b334a;          /* 線/枠 */
+  --shadow:0 10px 24px rgba(0,0,0,.45);
+  --topbar-h:44px;          /* 実計測でJSから更新されます */
+  --sidebar-w:48px;
+  --sidebar-top:calc(var(--topbar-h) + 0px);
 }
-html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Hiragino Kaku Gothic ProN","Meiryo",sans-serif}
-*,*:before,*:after{box-sizing:border-box}
-*{writing-mode:horizontal-tb}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  color:var(--ink);
+  background:var(--bg);
+  font-family:system-ui, -apple-system, "Segoe UI", Roboto,
+   "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+  letter-spacing:.1px;
+}
 
 /* ===== Top bar ===== */
-header.topbar{
-  position:sticky; top:0; left:0; right:0; z-index:100;
+.topbar{
+  position:sticky; top:0; left:0; right:0; z-index:50;
   height:var(--topbar-h);
-  display:flex; align-items:center; gap:8px; padding:6px 10px;
-  background:linear-gradient(180deg,var(--accent-weak),#18244a);
-  border-bottom:1px solid rgba(255,255,255,.08);
+  display:flex; align-items:center; gap:8px;
+  padding:8px 10px;
+  background:linear-gradient(0deg,var(--accent-weak),var(--accent));
+  border-bottom:1px solid rgba(255,255,255,.15);
+  box-shadow:0 0 0 1px rgba(0,0,0,.2) inset;
 }
-.btn{height:28px;padding:0 10px;border-radius:10px;font-size:12px;
-  display:inline-flex;align-items:center;justify-content:center;
-  color:var(--ink);background:rgba(255,255,255,.12);
-  border:1px solid rgba(255,255,255,.18); user-select:none; cursor:pointer}
-.btn:active{transform:translateY(1px)}
-
-/* ===== Layout ===== */
-#wrap{position:relative}
-#stage{position:absolute; inset:0; top:var(--topbar-h); padding-left:var(--toolbar-w); overflow:hidden}
-#vp{position:absolute; inset:0; transform-origin:0 0}
-canvas{position:absolute; left:0; top:0; display:block}
-#grid{z-index:0} #paper{z-index:1}
-
-/* ===== Sidebar / Tools (fix21の見た目と挙動) ===== */
-aside.toolbar{
-  position:absolute; top:var(--topbar-h); left:0; bottom:0; z-index:90;
-  width:var(--toolbar-w); padding:8px 6px;
-  background:rgba(0,0,0,.28); box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);
+.topbar .spacer{flex:1}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  height:28px; padding:0 10px; gap:6px;
+  border-radius:10px; border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.06); color:var(--ink); font-size:12px;
+  cursor:pointer; user-select:none;
 }
-.fold{position:absolute; top:8px; left:12px}
+.btn:hover{ outline:2px solid rgba(79,124,255,.35) }
+.btn:active{ transform:translateY(1px) }
+
+/* ===== Stage / layers ===== */
+#wrap{ position:relative; }
+#stage{
+  position:absolute; inset:0; top:var(--sidebar-top);
+  left:0; right:0; bottom:0;
+  overflow:hidden;
+}
+#stage-inner{
+  position:relative; width:100%; height:100%;
+  transform-origin:0 0;
+}
+#grid,#paper,#hud{
+  position:absolute; inset:0;
+}
+#paper{ background:#0c1220; }   /* 背景色はここでだけ塗る */
+#hud{ pointer-events:none }
+
+/* ===== Sidebar ===== */
+.sidebar{
+  position:absolute; top:var(--sidebar-top); left:0; bottom:0; width:var(--sidebar-w);
+  display:flex; flex-direction:column; gap:8px; padding:8px;
+  background:rgba(0,0,0,.22); border-right:1px solid rgba(255,255,255,.08);
+  z-index:60;
+}
 .tool{
-  width:var(--tool-size); height:var(--tool-size);
-  margin:0 auto 8px; border-radius:var(--tool-radius);
-  display:grid; place-items:center; color:#fff;
-  background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16);
-  outline:3px solid transparent; transition:outline-color .12s ease, outline-width .12s ease;
-  user-select:none; cursor:pointer;
+  width:36px; height:36px; border-radius:10px;
+  display:grid; place-items:center;
+  border:1px solid var(--muted);
+  background:rgba(0,0,0,.18); color:var(--ink);
+  cursor:pointer; user-select:none;
+  transition:.15s;
 }
-.tool svg{width:22px; height:22px}
-.tool.active{outline-color:var(--ok); outline-width:3px}     /* ツール＝太め */
-.tool.gear.active{outline-color:var(--ok); outline-width:2px} /* ⚙だけ細め */
+.tool svg{width:18px;height:18px}
+.tool:hover{ outline:2px solid rgba(79,124,255,.35) }
+.tool.active{ outline:2px solid var(--ok) }                 /* 太めの緑枠 */
+.tool.gear.active{ outline:1px solid var(--ok) }            /* ⚙だけ細い枠 */
 
-.tri{width:18px;height:18px;display:block}
-.tri path{stroke:#fff;stroke-width:2;fill:none}
-.fold[data-collapsed="true"] ~ .stack{display:none}
-.fold[data-collapsed="true"] .tri{transform:rotate(180deg)}
-.stack{position:absolute; top:56px; left:0; right:0}
+.collapse{ margin-bottom:4px }
 
-/* ===== 設定パネル ===== */
+/* ===== Panel (settings) ===== */
 .panel{
-  position:absolute; left:76px; top:72px; min-width:320px; max-width:420px;
-  background:var(--panel); border:1px solid rgba(255,255,255,.12);
-  border-radius:12px; box-shadow:0 16px 40px rgba(0,0,0,.5);
-  padding:14px; display:none; z-index:110;
+  position:absolute; left:64px; top:calc(var(--sidebar-top) + 12px); z-index:70;
+  min-width:320px; max-width:420px;
+  background:rgba(16,19,32,.96); border:1px solid rgba(255,255,255,.12);
+  border-radius:12px; box-shadow:var(--shadow); padding:10px; display:none;
 }
-.panel.show{display:block}
-.panel .drag{position:absolute; left:10px; top:10px; width:24px; height:24px; display:grid; place-items:center; cursor:grab}
-.panel .drag:active{cursor:grabbing}
-.panel .drag svg{width:16px;height:16px;opacity:.7}
-.panel .close{position:absolute; right:10px; top:10px; height:26px; padding:0 10px; border-radius:8px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); color:#fff}
-.row{display:flex; align-items:center; gap:10px; margin:10px 0}
-.row label{width:92px; font-size:12px; color:var(--ink-dim)}
-.row input[type="range"]{flex:1}
-.inline{display:inline-flex; align-items:center; gap:8px}
-.hint{font-size:12px; color:var(--ink-dim)}
+.panel.show{ display:block }
+.panel h4{ margin:0 0 8px 0; font-size:14px; color:var(--ink) }
+.row{ display:flex; align-items:center; gap:10px; margin:8px 0 }
+.row label{ width:84px; font-size:12px; color:var(--ink-dim) }
+input[type="range"]{ flex:1 }
+input[type="color"]{
+  width:28px; height:22px; padding:0; border:0; background:transparent; cursor:pointer;
+}
+.panel .handle{ cursor:grab; font:12px/1 monospace; color:#ddd; opacity:.7 }
+.panel .close{ position:absolute; right:10px; top:10px; height:26px; padding:0 10px }
+.panel .group{ margin:10px 0 6px; font-size:12px; color:#bcd }
+.panel .pill{ padding:6px 10px; border-radius:8px; font-size:12px; border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.05); cursor:pointer }
 
-/* HUD（角度表示） */
-#hud{position:absolute; pointer-events:none; z-index:120; color:#fff; font-size:11px; padding:2px 6px; border-radius:8px; background:rgba(0,0,0,.45); display:none}
+/* HUD angle badge */
+#angle{
+  position:absolute; padding:4px 8px; border-radius:8px; font-size:12px;
+  color:#fff; background:#222a; pointer-events:none; transform:translate(-50%,-150%); display:none
+}
+
+/* Writing direction fix for mobile topbar */
+.topbar, .topbar *{ writing-mode:horizontal-tb; }
+
+/* Small helper */
+.badge{ font-size:11px; opacity:.7; padding-left:4px }
 </style>
 </head>
 <body>
-<header class="topbar" id="topbar">
-  <span style="opacity:.7;font-size:12px">Note Link v0.7.0 / No.13 · build: mini-fix21-toolbar-restore</span>
-  <span style="flex:1"></span>
+
+<!-- ===== Top bar ===== -->
+<div class="topbar" id="topbar">
+  <div>Note Link v0.7.0 / No.13</div>
+  <div class="spacer"></div>
   <button class="btn" id="zoomOut">−</button>
-  <button class="btn" id="zoomReset">100%</button>
+  <button class="btn" id="zoomPct">100%</button>
   <button class="btn" id="zoomIn">＋</button>
   <button class="btn" id="undoBtn">undo</button>
   <button class="btn" id="redoBtn">redo</button>
   <button class="btn" id="printBtn">印刷</button>
   <button class="btn" id="pngBtn">PNG</button>
   <button class="btn" id="shareBtn">共有</button>
-</header>
-
-<div id="wrap">
-  <aside class="toolbar" id="toolbar">
-    <div class="fold" id="fold">
-      <div class="tool" title="折りたたみ">
-        <svg class="tri" viewBox="0 0 24 24"><path d="M5 15L12 8l7 7"/></svg>
-      </div>
-    </div>
-    <div class="stack" id="toolStack">
-      <div class="tool active" id="t-pen" title="ペン">
-        <svg viewBox="0 0 24 24"><path d="M3 21l3.5-.7L19 7.8 16.2 5 4.7 16.5 4 20zM14 6l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </div>
-      <div class="tool" id="t-marker" title="マーカー">
-        <svg viewBox="0 0 24 24"><path d="M5 15l9-9 4 4-9 9-5 1 1-5z" fill="currentColor"/></svg>
-      </div>
-      <div class="tool" id="t-eraser" title="消しゴム">
-        <svg viewBox="0 0 24 24"><path d="M6 19h12M3 14l8-8a2 2 0 012.8 0l4.2 4.2a2 2 0 010 2.8l-8 8H7.8a2 2 0 01-1.4-.6L3.6 16a2 2 0 010-2.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </div>
-      <div class="tool" id="t-hand" title="選択/パン">
-        <svg viewBox="0 0 24 24"><path d="M8 13V7a1 1 0 012 0v4m2 2V5a1 1 0 012 0v8m2-2V7a1 1 0 012 0v6m-8 3l-1 5h8l4-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </div>
-      <div class="tool" id="t-text" title="テキスト（keyboard）">
-        <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 10h2M10 10h2M14 10h2M6 13h8M16 13h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </div>
-      <div class="tool gear" id="t-gear" title="設定（今のツール）">
-        <svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z" stroke="currentColor" stroke-width="2" fill="none"/><path d="M19 12a7 7 0 01-.1 1.2l2 1.6-2 3.5-2.3-.9a7.2 7.2 0 01-2 .9L14 22h-4l-.6-2.8a7.2 7.2 0 01-2-.9l-2.3.9-2-3.5 2-1.6A7 7 0 015 12c0-.4 0-.8.1-1.2l-2-1.6 2-3.5 2.3.9a7.2 7.2 0 012-.9L10 2h4l.6 2.8a7.2 7.2 0 012 .9l2.3-.9 2 3.5-2 1.6c.1.4.1.8.1 1.2z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-    </div>
-  </aside>
-
-  <main id="stage">
-    <div id="vp">
-      <canvas id="grid"></canvas>
-      <canvas id="paper"></canvas>
-      <div id="hud">0°</div>
-    </div>
-  </main>
+  <div class="btn">build: single</div>
 </div>
 
-<!-- 設定パネル（コンテンツはJSで切替） -->
-<div class="panel" id="panel">
-  <button class="drag" id="pDrag" title="ドラッグで移動">
-    <svg viewBox="0 0 24 24"><path d="M4 9h16M4 15h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-  </button>
-  <button class="close" id="pClose">閉じる</button>
-  <div id="panelBody"></div>
+<!-- ===== Stage ===== -->
+<div id="wrap">
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="tool collapse" id="collapseBtn" title="折りたたみ">
+      <!-- outline三角形（中抜き） -->
+      <svg viewBox="0 0 24 24" fill="none"><path d="M5 16h14L12 7 5 16Z" stroke="currentColor" stroke-width="2"/></svg>
+    </div>
+    <div class="tool active" data-tool="pen" title="ペン" id="tool-pen">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M4 20l4-1 10-10-3-3L5 16l-1 4Z" stroke="currentColor" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="tool" data-tool="marker" title="マーカー" id="tool-marker">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M3 17l4 4 8-8-4-4-8 8Z" stroke="currentColor" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="tool" data-tool="eraser" title="消しゴム" id="tool-eraser">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M6 19h10M4 14l7-7 5 5-7 7H4Z" stroke="currentColor" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="tool" data-tool="hand" title="パン（移動）" id="tool-hand">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M7 11V7m4 4V5m4 6V6m3 7c0 4-3 6-6 6s-8-3-8-8" stroke="currentColor" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="tool" data-tool="text" title="テキスト" id="tool-text">
+      <!-- キーボードアイコン -->
+      <svg viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="7" width="18" height="10" rx="2" stroke="currentColor" stroke-width="2"/>
+        <path d="M6 10h2m2 0h2m2 0h2M6 13h10" stroke="currentColor" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="tool gear" id="tool-gear" title="設定">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm8 4-2 1 0 2 2 1-1 2-2-1-2 1-1-2 1-2-1-2 1-2 2 1 2-1 1 2Z" stroke="#fff" stroke-width="1.8"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Drawing area -->
+  <div id="stage">
+    <div id="stage-inner">
+      <canvas id="grid"></canvas>
+      <canvas id="paper"></canvas>
+      <canvas id="hud"></canvas>
+      <div id="angle">0°</div>
+      <!-- テキストボックスはここへ追加 -->
+      <div id="textLayer" style="position:absolute; inset:0; pointer-events:none;"></div>
+    </div>
+  </div>
+
+  <!-- Settings panel -->
+  <div class="panel" id="panel">
+    <div class="row" style="justify-content:space-between;align-items:center;">
+      <div class="handle">≡ drag</div>
+      <h4 id="panelTitle" style="margin-left:-40px;">ペン設定</h4>
+      <button class="btn close" id="panelClose">閉じる</button>
+    </div>
+    <div id="panelBody"></div>
+  </div>
 </div>
 
 <script>
-/* =========================
-   build: mini-fix21-toolbar-restore / 2025-09-22 08:05 JST
-   目的：ツールバー挙動・設定の出し分けを fix21 と同等に戻す
-========================= */
+/* ========= helpers ========= */
+const $ = sel => document.querySelector(sel);
+const on = (el,ev,fn,opt)=>el.addEventListener(ev,fn,opt);
+const clamp = (v,a,b)=>Math.min(b,Math.max(a,v));
 
-const $=s=>document.querySelector(s);
-const topbar=$('#topbar'), stage=$('#stage'), vp=$('#vp'), hud=$('#hud');
-const cg=$('#grid'), cv=$('#paper'), gtx=cg.getContext('2d'), ctx=cv.getContext('2d',{alpha:false,desynchronized:true});
-let dpr=Math.max(1,Math.floor(devicePixelRatio||1)), zoom=1, panX=0, panY=0;
+/* ========= elements ========= */
+const topbar = $('#topbar');
+const grid = $('#grid'), paper = $('#paper'), hud = $('#hud');
+const gtx = grid.getContext('2d'), ctx = paper.getContext('2d'), htx = hud.getContext('2d');
+const stage = $('#stage'), inner = $('#stage-inner'), textLayer = $('#textLayer');
+const sidebar = $('#sidebar');
+const angleBadge = $('#angle');
 
-function measureTop(){ const r=topbar.getBoundingClientRect(); document.documentElement.style.setProperty('--topbar-h', r.height+'px'); }
-addEventListener('resize',measureTop); addEventListener('orientationchange',measureTop); measureTop();
+const tools = {
+  pen: $('#tool-pen'),
+  marker: $('#tool-marker'),
+  eraser: $('#tool-eraser'),
+  hand: $('#tool-hand'),
+  text: $('#tool-text'),
+  gear: $('#tool-gear'),
+  collapse: $('#collapseBtn'),
+};
 
-function fit(){
-  const r=stage.getBoundingClientRect();
-  [cg,cv].forEach(c=>{
-    c.width = Math.max(1,Math.floor(r.width*dpr));
-    c.height= Math.max(1,Math.floor(r.height*dpr));
-    c.style.width=r.width+'px'; c.style.height=r.height+'px';
+/* ========= state ========= */
+let tool = 'pen';
+let zoom = 1;
+let dpr = window.devicePixelRatio || 1;
+let drawing = false, panning = false, start = null, last = null, shift = false;
+let straightPreview = false;
+let off = {x:0,y:0}; // pan offset
+const hist=[], redoStack=[]; const HIST_MAX=10;
+
+/* per tool configs */
+const state = {
+  pen:    { color:'#e6f1ff', size:4, alpha:1, line:false },
+  marker: { color:'#cfe580', size:16, alpha:.4, line:false, cap:'butt' },
+  eraser: { size:18 },
+  grid:   { show:false, pitchMM:10, color:'#546489' },
+  text:   { size:24, color:'#ffffff', bold:false, italic:false }
+};
+
+/* ========= layout / sizing ========= */
+function measureTopbar(){
+  const r = topbar.getBoundingClientRect();
+  document.documentElement.style.setProperty('--topbar-h', `${r.height}px`);
+  document.documentElement.style.setProperty('--sidebar-top', `${r.height}px`);
+}
+function resizeCanvases(){
+  dpr = window.devicePixelRatio || 1;
+  const r = inner.getBoundingClientRect();
+  [grid,paper,hud].forEach(c=>{
+    c.width = Math.round(r.width * dpr);
+    c.height = Math.round(r.height * dpr);
+    const cxt = c.getContext('2d');
+    cxt.setTransform(1,0,0,1,0,0);
+    cxt.scale(dpr, dpr);
+    c.style.width = r.width+'px';
+    c.style.height = r.height+'px';
   });
-  vp.style.transform=`translate(${panX}px,${panY}px) scale(${zoom})`;
-  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr); ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--paper')||'#0c1220'; ctx.fillRect(0,0,r.width,r.height);
   drawGrid();
 }
-new ResizeObserver(fit).observe(stage);
+function setZoom(v){
+  zoom = clamp(v, .5, 3);
+  inner.style.transform = `scale(${zoom}) translate(${off.x}px, ${off.y}px)`;
+  $('#zoomPct').textContent = Math.round(zoom*100)+'%';
+  drawGrid();
+}
 
-/* ===== ツール状態 / 設定保存 ===== */
-let tool='pen';
-const toolBtns=['t-pen','t-marker','t-eraser','t-hand','t-text','t-gear'];
-toolBtns.forEach(id=>{
-  $('#'+id).addEventListener('click',()=>{
-    if(id==='t-gear'){ openPanel(); return; }
-    tool = id.replace('t-','');
-    setActiveTool(id);
-    closePanel();
-    saveLastTool();
+/* ========= grid ========= */
+function mm2px(mm){ return mm * 96/25.4; } // CSS px
+function drawGrid(){
+  const show = state.grid.show;
+  gtx.clearRect(0,0,grid.width/dpr, grid.height/dpr);
+  if(!show) return;
+  const pitch = mm2px(state.grid.pitchMM)*zoom;  // ズーム連動
+  const w = grid.width/dpr, h = grid.height/dpr;
+  gtx.strokeStyle = state.grid.color;
+  gtx.lineWidth = 1;
+  gtx.globalAlpha = .35;
+  gtx.beginPath();
+  for(let x=0; x<=w; x+=pitch){ gtx.moveTo(x+.5,0); gtx.lineTo(x+.5,h); }
+  for(let y=0; y<=h; y+=pitch){ gtx.moveTo(0,y+.5); gtx.lineTo(w,y+.5); }
+  gtx.stroke();
+  gtx.globalAlpha = 1;
+}
+
+/* ========= toolbar / active visuals ========= */
+function setActive(name){
+  tool = name;
+  Object.entries(tools).forEach(([k,el])=>{
+    if(!el.classList.contains('tool')) return;
+    el.classList.toggle('active', k===name || (k==='gear' && panel.classList.contains('show')));
   });
-});
-function setActiveTool(id){
-  toolBtns.forEach(x=>$('#'+x).classList.remove('active'));
-  $('#'+id).classList.add('active');
-}
-function saveLastTool(){ localStorage.setItem('nl_lastTool', tool); }
-function restoreLastTool(){ const t=localStorage.getItem('nl_lastTool'); if(t && toolBtns.includes('t-'+t)){ tool=t; setActiveTool('t-'+t);} }
-restoreLastTool();
-
-/* 折り畳み */
-$('#fold').addEventListener('click',e=>{
-  if(!e.target.closest('.tool')) return;
-  const folded = $('#fold').hasAttribute('data-folded');
-  if(folded){ $('#fold').removeAttribute('data-folded'); }
-  else { $('#fold').setAttribute('data-folded',''); }
-});
-
-/* ===== 設定保持（ツール別） ===== */
-const defaults={
-  pen:{color:'#cfe9ff', size:4, alpha:100, line:false, gridShow:false, gridStep:10},
-  marker:{color:'#b6d06a', size:16, alpha:40, cap:'butt', line:false, gridShow:false, gridStep:10},
-  eraser:{size:24},
-  hand:{}, text:{color:'#ffffff', size:48, bold:false, italic:false, gridShow:false, gridStep:10}
-};
-let conf=JSON.parse(localStorage.getItem('nl_conf')||'{}');
-function cfg(t){ if(!conf[t]) conf[t]=JSON.parse(JSON.stringify(defaults[t]||{})); return conf[t]; }
-function saveConf(){ localStorage.setItem('nl_conf', JSON.stringify(conf)); }
-
-/* ===== パネル（内容をツールごとに生成） ===== */
-const panel=$('#panel'), panelBody=$('#panelBody');
-function openPanel(){
-  $('#t-gear').classList.add('active'); // ⚙も緑化
+  // テキストレイヤの操作性
+  textLayer.style.pointerEvents = (tool==='text' || tool==='hand' || tool==='eraser') ? 'auto':'none';
   buildPanel();
-  panel.classList.add('show');
 }
-function closePanel(){ $('#t-gear').classList.remove('active'); panel.classList.remove('show'); }
-$('#pClose').onclick=closePanel;
+Object.values(tools).forEach(el=>{
+  if(!el || !el.dataset) return;
+  if(el.dataset.tool){
+    on(el,'click',()=>setActive(el.dataset.tool));
+  }
+});
+on(tools.gear,'click',()=>{
+  panel.classList.toggle('show');
+  setActive(tool);
+});
+on(tools.collapse,'click',()=>{
+  const sb = sidebar;
+  const collapsed = sb.dataset.col==='1';
+  sb.dataset.col = collapsed ? '0':'1';
+  sb.style.height = collapsed ? '' : '45px';
+  sb.style.overflow = 'hidden';
+  // アイコン回転
+  const svg = tools.collapse.querySelector('svg');
+  svg.style.transform = collapsed ? 'rotate(0deg)':'rotate(180deg)';
+  svg.style.transition = '.2s';
+});
 
-/* ドラッグで移動（≡ハンドル） */
-(()=>{
-  const drag=$('#pDrag'); let dragging=false, sx=0, sy=0, ox=0, oy=0;
-  drag.addEventListener('pointerdown',e=>{ dragging=true; sx=e.clientX; sy=e.clientY; const r=panel.getBoundingClientRect(); ox=r.left; oy=r.top; drag.setPointerCapture(e.pointerId); });
-  drag.addEventListener('pointermove',e=>{ if(!dragging) return; const dx=e.clientX-sx, dy=e.clientY-sy; panel.style.left=(ox+dx)+'px'; panel.style.top=(oy+dy)+'px'; });
-  drag.addEventListener('pointerup',()=>dragging=false);
+/* ========= panel (draggable) ========= */
+const panel = $('#panel'), panelBody=$('#panelBody'), panelTitle=$('#panelTitle');
+$('#panelClose').onclick = ()=>{ panel.classList.remove('show'); setActive(tool); };
+(function makeDraggable(){
+  let dragging=false, sx=0, sy=0, px=0, py=0;
+  const handle = panel.querySelector('.handle');
+  on(handle,'pointerdown',e=>{
+    dragging=true; sx=e.clientX; sy=e.clientY;
+    const r = panel.getBoundingClientRect(); px=r.left; py=r.top;
+    panel.setPointerCapture?.(e.pointerId);
+  });
+  on(window,'pointermove',e=>{
+    if(!dragging) return;
+    panel.style.left = (px + (e.clientX-sx))+'px';
+    panel.style.top  = (py + (e.clientY-sy))+'px';
+  });
+  on(window,'pointerup',()=>dragging=false);
 })();
 
-function row(label, html){ return `<div class="row"><label>${label}</label>${html}</div>`; }
+/* ========= panel content ========= */
 function buildPanel(){
-  const c=cfg(tool);
-  if(tool==='pen'){
-    panelBody.innerHTML=
-      row('色', `<input type="color" id="penColor" value="${c.color}">`) +
-      row('太さ', `<input type="range" id="penSize" min="1" max="40" value="${c.size}"><span class="hint" id="penSizeV">${c.size}px</span>`) +
-      row('不透明度', `<input type="range" id="penAlpha" min="5" max="100" value="${c.alpha}"><span class="hint" id="penAlphaV">${c.alpha}%</span>`) +
-      row('直線', `<label class="inline"><input type="checkbox" id="penLine" ${c.line?'checked':''}> 直線モード（15°刻み / モバイル）</label>`) +
-      row('グリッド', `<label class="inline"><input type="checkbox" id="gShow" ${c.gridShow?'checked':''}> 表示</label> <select id="gStep"><option value="5"${c.gridStep==5?' selected':''}>5mm</option><option value="10"${c.gridStep==10?' selected':''}>10mm</option></select>`);
+  const t = tool;
+  panelTitle.textContent =
+    t==='pen'   ? 'ペン設定' :
+    t==='marker'? 'マーカー設定' :
+    t==='eraser'? '消しゴム設定' :
+    t==='text'  ? 'keyboard 設定' :
+    t==='hand'  ? 'パン設定' : '設定';
+
+  const P = [];
+  const range = (id,label,min,max,step,val)=>
+    `<div class="row"><label>${label}</label><input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${val}"><span class="badge">${id.includes('alpha')?(val*100|0)+'%':val+'px'}</span></div>`;
+
+  if(t==='pen' || t==='marker'){
+    const s = state[t];
+    P.push(`<div class="row"><label>色</label><input type="color" id="clr" value="${s.color}"></div>`);
+    P.push(range('size','太さ',1,64,1,s.size));
+    P.push(range('alpha','不透明度',0,1,0.01,s.alpha));
+    P.push(`<div class="row"><label>直線</label>
+      <label class="pill"><input type="checkbox" id="line" ${s.line?'checked':''}> 直線モード（15°刻み）</label></div>`);
+    if(t==='marker'){
+      P.push(`<div class="row"><label>端の形</label>
+        <select id="cap">
+          <option value="butt" ${s.cap==='butt'?'selected':''}>□ 角</option>
+          <option value="round" ${s.cap==='round'?'selected':''}>● 丸</option>
+        </select></div>`);
+    }
+    P.push(`<div class="group">グリッド</div>
+      <div class="row"><label>表示</label><input id="gridShow" type="checkbox" ${state.grid.show?'checked':''}></div>
+      <div class="row"><label>ピッチ</label>
+        <select id="gridPitch">
+          <option value="5" ${state.grid.pitchMM===5?'selected':''}>5mm</option>
+          <option value="10" ${state.grid.pitchMM===10?'selected':''}>10mm</option>
+        </select>
+        <input type="color" id="gridColor" value="${state.grid.color}">
+      </div>`);
   }
-  else if(tool==='marker'){
-    panelBody.innerHTML=
-      row('色', `<input type="color" id="mkColor" value="${c.color}">`) +
-      row('太さ', `<input type="range" id="mkSize" min="4" max="64" value="${c.size}"><span class="hint" id="mkSizeV">${c.size}px</span>`) +
-      row('不透明度', `<input type="range" id="mkAlpha" min="5" max="100" value="${c.alpha}"><span class="hint" id="mkAlphaV">${c.alpha}%</span>`) +
-      row('端の形', `<select id="mkCap"><option value="butt"${c.cap==='butt'?' selected':''}>□ 角</option><option value="round"${c.cap==='round'?' selected':''}>● 丸</option></select>`) +
-      row('直線', `<label class="inline"><input type="checkbox" id="mkLine" ${c.line?'checked':''}> 直線モード</label>`) +
-      row('グリッド', `<label class="inline"><input type="checkbox" id="gShow" ${c.gridShow?'checked':''}> 表示</label> <select id="gStep"><option value="5"${c.gridStep==5?' selected':''}>5mm</option><option value="10"${c.gridStep==10?' selected':''}>10mm</option></select>`);
+  if(t==='eraser'){
+    const s = state.eraser;
+    P.push(range('esize','消し幅',4,64,1,s.size));
   }
-  else if(tool==='eraser'){
-    panelBody.innerHTML=
-      row('消し幅', `<input type="range" id="erSize" min="6" max="72" value="${c.size}"><span class="hint" id="erSizeV">${c.size}px</span>`) +
-      `<div class="hint" style="margin-top:6px">※ fix21仕様：モードは「こする」固定（βの一筆削除は後続で）</div>`;
+  if(t==='text'){
+    const s = state.text;
+    P.push(range('tsize','文字サイズ',10,120,1,s.size));
+    P.push(`<div class="row"><label>色</label><input type="color" id="tcolor" value="${s.color}"></div>`);
+    P.push(`<div class="row"><label>スタイル</label>
+      <label class="pill"><input type="checkbox" id="tbold" ${s.bold?'checked':''}> 太字</label>
+      <label class="pill"><input type="checkbox" id="titalic" ${s.italic?'checked':''}> 斜体</label>
+    </div>`);
+    P.push(`<div class="row"><button class="btn" id="addText">テキストを追加</button>
+      <button class="btn" id="delText">枠ごと削除</button></div>`);
   }
-  else if(tool==='hand'){
-    panelBody.innerHTML=`<div class="row"><label>操作</label><div class="hint">ドラッグでキャンバスを移動（パン）/ ホイールでズーム</div></div>`;
+  panelBody.innerHTML = P.join('');
+
+  /* wire */
+  const B = id=>panelBody.querySelector('#'+id);
+  if(t==='pen' || t==='marker'){
+    const s = state[t];
+    B('clr').oninput = e=> s.color = e.target.value;
+    B('size').oninput = e=>{ s.size = +e.target.value; e.target.nextElementSibling.textContent = s.size+'px'; };
+    B('alpha').oninput = e=>{ s.alpha = +e.target.value; e.target.nextElementSibling.textContent = (s.alpha*100|0)+'%'; };
+    B('line').onchange = e=> s.line = e.target.checked;
+    if(t==='marker'){ B('cap').onchange = e=> s.cap = e.target.value; }
+    B('gridShow').onchange = e=>{ state.grid.show = e.target.checked; drawGrid(); };
+    B('gridPitch').onchange = e=>{ state.grid.pitchMM = +e.target.value; drawGrid(); };
+    B('gridColor').oninput = e=>{ state.grid.color = e.target.value; drawGrid(); };
   }
-  else if(tool==='text'){
-    panelBody.innerHTML=
-      row('色', `<input type="color" id="txColor" value="${c.color}">`) +
-      row('文字サイズ', `<input type="range" id="txSize" min="12" max="96" value="${c.size}"><span class="hint" id="txSizeV">${c.size}px</span>`) +
-      row('テキスト', `<div class="inline"><button class="btn" id="txAdd">テキストを追加</button><button class="btn" id="txBold">太字</button><button class="btn" id="txItalic">斜体</button><button class="btn" id="txDel">選択削除</button><button class="btn" id="txKill">枠ごと削除</button></div>`) +
-      row('グリッド', `<label class="inline"><input type="checkbox" id="gShow" ${c.gridShow?'checked':''}> 表示</label> <select id="gStep"><option value="5"${c.gridStep==5?' selected':''}>5mm</option><option value="10"${c.gridStep==10?' selected':''}>10mm</option></select>`);
+  if(t==='eraser'){
+    B('esize').oninput = e=>{ state.eraser.size = +e.target.value; e.target.nextElementSibling.textContent = state.eraser.size+'px'; };
   }
-  bindPanelEvents();
+  if(t==='text'){
+    const s = state.text;
+    B('tsize').oninput = e=>{ s.size = +e.target.value; e.target.nextElementSibling.textContent = s.size+'px'; };
+    B('tcolor').oninput = e=> s.color = e.target.value;
+    B('tbold').onchange = e=> s.bold = e.target.checked;
+    B('titalic').onchange = e=> s.italic = e.target.checked;
+    B('addText').onclick = addTextBox;
+    B('delText').onclick = deleteSelectedTextBox;
+  }
 }
 
-/* パネルのイベント → confへ反映して保存、必要に応じて再描画 */
-function bindPanelEvents(){
-  const c=cfg(tool);
-  const by=(id)=>panelBody.querySelector('#'+id);
-
-  if(tool==='pen'){
-    by('penColor').oninput=e=>{c.color=e.target.value; saveConf();}
-    by('penSize').oninput=e=>{c.size=+e.target.value; by('penSizeV').textContent=c.size+'px'; saveConf();}
-    by('penAlpha').oninput=e=>{c.alpha=+e.target.value; by('penAlphaV').textContent=c.alpha+'%'; saveConf();}
-    by('penLine').oninput=e=>{c.line=e.target.checked; saveConf();}
-    by('gShow').oninput=e=>{c.gridShow=e.target.checked; drawGrid(); saveConf();}
-    by('gStep').oninput=e=>{c.gridStep=+e.target.value; drawGrid(); saveConf();}
-  }else if(tool==='marker'){
-    by('mkColor').oninput=e=>{c.color=e.target.value; saveConf();}
-    by('mkSize').oninput=e=>{c.size=+e.target.value; by('mkSizeV').textContent=c.size+'px'; saveConf();}
-    by('mkAlpha').oninput=e=>{c.alpha=+e.target.value; by('mkAlphaV').textContent=c.alpha+'%'; saveConf();}
-    by('mkCap').oninput=e=>{c.cap=e.target.value; saveConf();}
-    by('mkLine').oninput=e=>{c.line=e.target.checked; saveConf();}
-    by('gShow').oninput=e=>{c.gridShow=e.target.checked; drawGrid(); saveConf();}
-    by('gStep').oninput=e=>{c.gridStep=+e.target.value; drawGrid(); saveConf();}
-  }else if(tool==='eraser'){
-    by('erSize').oninput=e=>{c.size=+e.target.value; by('erSizeV').textContent=c.size+'px'; saveConf();}
-  }else if(tool==='text'){
-    by('txColor').oninput=e=>{c.color=e.target.value; updateSelectedTextStyle(); saveConf();}
-    by('txSize').oninput=e=>{c.size=+e.target.value; by('txSizeV').textContent=c.size+'px'; updateSelectedTextStyle(); saveConf();}
-    by('txAdd').onclick=()=>addText();
-    by('txBold').onclick=()=>toggleSelFmt('fontWeight','bold');
-    by('txItalic').onclick=()=>toggleSelFmt('fontStyle','italic');
-    by('txDel').onclick=()=>deleteSelectedText();
-    by('txKill').onclick=()=>deleteSelectedFrame();
-    by('gShow').oninput=e=>{c.gridShow=e.target.checked; drawGrid(); saveConf();}
-    by('gStep').oninput=e=>{c.gridStep=+e.target.value; drawGrid(); saveConf();}
-  }
-}
-
-/* ===== グリッド ===== */
-function mm2px(mm){ return mm*3.78 } // 96dpi基準
-function drawGrid(){
-  const r=stage.getBoundingClientRect();
-  gtx.setTransform(1,0,0,1,0,0); gtx.scale(dpr,dpr);
-  gtx.clearRect(0,0,r.width,r.height);
-  const cs = cfg(tool); // 今のツールのグリッド表示状態を使う（fix21）
-  const show = cs.gridShow, stepMM=cs.gridStep||10;
-  if(!show) return;
-  const step = mm2px(stepMM)*zoom;
-  gtx.beginPath(); gtx.strokeStyle='rgba(255,255,255,.08)'; gtx.lineWidth=1;
-  for(let x=0; x<=r.width; x+=step){ gtx.moveTo(x,0); gtx.lineTo(x,r.height); }
-  for(let y=0; y<=r.height; y+=step){ gtx.moveTo(0,y); gtx.lineTo(r.width,y); }
-  gtx.stroke();
-}
-
-/* ===== 描画（直線HUD／モバイル直線モード） ===== */
-let drawing=false, last=null, shift=false;
-addEventListener('keydown',e=>{ if(e.key==='Shift') shift=true;});
-addEventListener('keyup',e=>{ if(e.key==='Shift') shift=false;});
-
-function pos(e){
-  const r=cv.getBoundingClientRect();
-  return {x:(e.clientX-r.left)/zoom, y:(e.clientY-r.top)/zoom};
-}
+/* ========= drawing ========= */
 function setStrokeForTool(){
-  ctx.lineJoin='round';
-  if(tool==='pen'){
-    const c=cfg('pen'); ctx.globalCompositeOperation='source-over';
-    ctx.strokeStyle=c.color; ctx.lineWidth=c.size; ctx.globalAlpha=c.alpha/100;
-    ctx.lineCap='round';
-  }else if(tool==='marker'){
-    const c=cfg('marker'); ctx.globalCompositeOperation='source-over';
-    ctx.strokeStyle=c.color; ctx.lineWidth=c.size; ctx.globalAlpha=c.alpha/100;
-    ctx.lineCap=c.cap||'butt';
+  if(tool==='pen' || tool==='marker'){
+    const s = state[tool];
+    ctx.globalAlpha = s.alpha;
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = s.size;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = (tool==='marker') ? s.cap : 'round';
   }else if(tool==='eraser'){
-    const c=cfg('eraser'); ctx.globalCompositeOperation='destination-out';
-    ctx.strokeStyle='#000'; ctx.lineWidth=c.size;
-    ctx.lineCap='round'; ctx.globalAlpha=1;
-  }else{
-    ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=1;
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = state.eraser.size;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
   }
 }
-function showHUD(x,y,deg){ hud.style.display='block'; hud.style.left=(x+12)+'px'; hud.style.top=(y+12)+'px'; hud.textContent=`${deg|0}°`; }
-function hideHUD(){ hud.style.display='none'; }
+function restoreComposite(){
+  if(tool==='eraser') ctx.globalCompositeOperation = 'source-over';
+}
+function pos(e){
+  const r = paper.getBoundingClientRect();
+  return { x:(e.clientX - r.left)/zoom, y:(e.clientY - r.top)/zoom };
+}
 
-cv.addEventListener('pointerdown',e=>{
-  if(tool==='hand'){ // パン（簡易）
-    panStart(e); return;
+/* live straight HUD */
+function showHUD(x,y,deg){
+  angleBadge.style.left = x+'px';
+  angleBadge.style.top = y+'px';
+  angleBadge.textContent = `${deg}°`;
+  angleBadge.style.display = 'block';
+}
+function hideHUD(){ angleBadge.style.display = 'none'; htx.clearRect(0,0,hud.width/dpr,hud.height/dpr); }
+
+on(window,'keydown',e=>{ if(e.key==='Shift') shift = true; });
+on(window,'keyup',e=>{ if(e.key==='Shift') shift = false; hideHUD(); });
+
+on(paper,'pointerdown',e=>{
+  if(tool==='hand'){ // pan
+    panning = true; start = {x:e.clientX, y:e.clientY, ox:off.x, oy:off.y};
+    paper.setPointerCapture?.(e.pointerId); return;
   }
-  if(['pen','marker','eraser'].includes(tool)){
-    cv.setPointerCapture?.(e.pointerId);
-    drawing=true; last=pos(e); setStrokeForTool();
-  }
+  if(tool==='text'){ return; } // テキストはdiv操作
+  if(!['pen','marker','eraser'].includes(tool)) return;
+
+  paper.style.touchAction = 'none';
+  paper.setPointerCapture?.(e.pointerId);
+  drawing = true;
+  start = last = pos(e);
+  setStrokeForTool();
+  ctx.beginPath();
+  ctx.moveTo(last.x, last.y);
 });
-cv.addEventListener('pointermove',e=>{
-  if(panning){ panMove(e); return; }
+
+on(paper,'pointermove',e=>{
+  if(panning && tool==='hand'){
+    const dx = (e.clientX - start.x)/zoom, dy = (e.clientY - start.y)/zoom;
+    off.x = start.ox + dx; off.y = start.oy + dy;
+    inner.style.transform = `scale(${zoom}) translate(${off.x}px, ${off.y}px)`;
+    return;
+  }
   if(!drawing) return;
-  const p=pos(e); const isLine = (tool==='pen'?cfg('pen').line:tool==='marker'?cfg('marker').line:false) || shift;
-  ctx.beginPath(); ctx.moveTo(last.x,last.y);
-  if(isLine){
-    ctx.lineTo(p.x,p.y);
-    const rad=Math.atan2(p.y-last.y,p.x-last.x); const deg=rad*180/Math.PI;
-    showHUD(e.clientX,e.clientY, Math.round(deg/15)*15);
+  const p = pos(e);
+  const straight = (tool==='pen' && state.pen.line) || (tool==='marker' && state.marker.line) || shift;
+
+  if(straight){
+    // プレビューはHUDで、確定はpointerup
+    htx.clearRect(0,0,hud.width/dpr,hud.height/dpr);
+    htx.strokeStyle = (tool==='marker')? state.marker.color : state.pen.color;
+    htx.globalAlpha = (tool==='marker')? state.marker.alpha : state.pen.alpha;
+    htx.lineWidth  = (tool==='marker')? state.marker.size  : state.pen.size;
+    htx.lineCap    = (tool==='marker')? state.marker.cap   : 'round';
+    htx.beginPath();
+    const dx = p.x - start.x, dy=p.y - start.y;
+    const deg = Math.round(Math.atan2(dy,dx)*180/Math.PI/15)*15;
+    const rad = deg*Math.PI/180;
+    const len = Math.hypot(dx,dy);
+    const sx = start.x + Math.cos(rad)*len;
+    const sy = start.y + Math.sin(rad)*len;
+    htx.moveTo(start.x, start.y); htx.lineTo(sx, sy); htx.stroke();
+    showHUD(e.clientX, e.clientY, deg);
   }else{
-    ctx.lineTo(p.x,p.y); last=p; hideHUD();
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    last = p;
   }
-  ctx.stroke();
-});
-cv.addEventListener('pointerup',()=>{
-  if(panning){ panEnd(); return; }
-  if(!drawing) return; drawing=false; hideHUD(); pushHistory(); ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
 });
 
-/* ===== パン（Hand） ===== */
-let panning=false, psx=0, psy=0, opx=0, opy=0;
-function panStart(e){ panning=true; psx=e.clientX; psy=e.clientY; opx=panX; opy=panY; cv.setPointerCapture?.(e.pointerId); }
-function panMove(e){ if(!panning) return; panX=opx+(e.clientX-psx); panY=opy+(e.clientY-psy); vp.style.transform=`translate(${panX}px,${panY}px) scale(${zoom})`; }
-function panEnd(){ panning=false; }
+on(paper,'pointerup',e=>{
+  if(panning){ panning=false; return; }
+  if(!drawing) return;
+  const p = pos(e);
+  const straight = (tool==='pen' && state.pen.line) || (tool==='marker' && state.marker.line) || shift;
 
-/* ===== Undo/Redo ===== */
-let hist=[], redo=[];
-function pushHistory(){
-  try{ const data=cv.toDataURL('image/webp',.9); hist.push(data); if(hist.length>10) hist.shift(); redo.length=0; }catch(e){}
-}
-async function restore(url){
-  return new Promise((res,rej)=>{
-    const img=new Image(); img.onload=()=>{ const r=stage.getBoundingClientRect(); ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr); ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--paper')||'#0c1220'; ctx.fillRect(0,0,r.width,r.height); ctx.drawImage(img,0,0,r.width,r.height); res(); }; img.onerror=rej; img.src=url;
+  if(straight){
+    const dx = p.x - start.x, dy=p.y - start.y;
+    const deg = Math.round(Math.atan2(dy,dx)*180/Math.PI/15)*15;
+    const rad = deg*Math.PI/180;
+    const len = Math.hypot(dx,dy);
+    const sx = start.x + Math.cos(rad)*len;
+    const sy = start.y + Math.sin(rad)*len;
+    ctx.beginPath(); setStrokeForTool();
+    ctx.moveTo(start.x,start.y); ctx.lineTo(sx,sy); ctx.stroke();
+    hideHUD();
+  }
+  drawing=false; restoreComposite();
+  pushHistory();
+});
+
+on(paper,'pointercancel',()=>{ drawing=false; panning=false; restoreComposite(); hideHUD(); });
+
+/* ========= text boxes ========= */
+let selectedText=null;
+function addTextBox(){
+  const s = state.text;
+  const box = document.createElement('div');
+  Object.assign(box.style, {
+    position:'absolute', left:'120px', top:'120px', minWidth:'40px', minHeight:'28px',
+    color:s.color, fontSize:s.size+'px',
+    fontWeight:s.bold?'700':'400', fontStyle:s.italic?'italic':'normal',
+    border:'1px dashed rgba(255,255,255,.25)', borderRadius:'8px',
+    padding:'6px 8px', background:'transparent', cursor:'text'
   });
-}
-$('#undoBtn').onclick=async ()=>{ if(hist.length<=1) return; const cur=hist.pop(); redo.push(cur); await restore(hist[hist.length-1]); };
-$('#redoBtn').onclick=async ()=>{ const u=redo.pop(); if(!u) return; await restore(u); hist.push(u); };
+  box.contentEditable = 'true';
+  box.textContent = 'テキスト';
+  box.dataset.type='textbox';
+  const handle = document.createElement('div');
+  Object.assign(handle.style,{position:'absolute', left:'-10px', top:'-10px', width:'10px', height:'10px', borderRadius:'50%', background:'#ccc', cursor:'move'});
+  box.appendChild(handle);
+  textLayer.appendChild(box);
+  textLayer.style.pointerEvents='auto';
 
-/* ===== ズーム & 出力 ===== */
-function setZoom(z){ zoom=Math.min(3,Math.max(.5,z)); vp.style.transform=`translate(${panX}px,${panY}px) scale(${zoom})`; drawGrid(); }
-$('#zoomOut').onclick=()=>setZoom(zoom-.1);
-$('#zoomIn').onclick =()=>setZoom(zoom+.1);
-$('#zoomReset').onclick=()=>setZoom(1);
-
-$('#printBtn').onclick=()=>window.print();
-$('#pngBtn').onclick =()=>cv.toBlob(b=>{ const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download='note.png'; a.click(); URL.revokeObjectURL(u); },'image/png');
-$('#shareBtn').onclick=async ()=>{
-  try{
-    if(navigator.canShare){ cv.toBlob(async b=>{ const f=new File([b],'note.png',{type:'image/png'}); await navigator.share({files:[f],title:'Note Link'}); },'image/png'); }
-    else $('#pngBtn').click();
-  }catch(e){}
-};
-
-/* ===== テキスト（最小実装：枠追加／選択削除 等） ===== */
-let textNodes=[];
-function addText(){
-  const c=cfg('text');
-  const d=document.createElement('div');
-  d.contentEditable='true';
-  d.textContent='テキスト';
-  Object.assign(d.style,{
-    position:'absolute', left:'120px', top:'120px', color:c.color, fontSize:c.size+'px',
-    fontWeight:c.bold?'700':'400', fontStyle:c.italic?'italic':'normal',
-    outline:'2px solid var(--ok)', borderRadius:'8px', padding:'4px 8px', background:'transparent', zIndex:105
+  // select
+  box.addEventListener('pointerdown',e=>{
+    selectedText=box;
+    if(e.target===handle){
+      // drag
+      const r = box.getBoundingClientRect();
+      const s = {x:e.clientX, y:e.clientY, l:r.left, t:r.top};
+      function mv(ev){
+        const dx=(ev.clientX-s.x)/zoom, dy=(ev.clientY-s.y)/zoom;
+        box.style.left = (parseFloat(box.style.left||0)+dx)+'px';
+        box.style.top  = (parseFloat(box.style.top||0)+dy)+'px';
+        s.x=ev.clientX; s.y=ev.clientY;
+      }
+      function up(){ window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up); pushHistory(); }
+      window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up);
+      ev.preventDefault();
+    }
   });
-  vp.appendChild(d); textNodes.push(d);
-  d.focus();
-  d.addEventListener('blur', ()=>{ if(d.textContent.trim()===''){ d.remove(); textNodes=textNodes.filter(x=>x!==d);} });
+  box.addEventListener('input',()=>{ if(box.textContent==='') box.textContent=''; });
+  box.addEventListener('blur',()=>{ if(box.textContent.trim()==='') { box.remove(); pushHistory(); } else pushHistory(); });
+
   pushHistory();
 }
-function getSelText(){ return textNodes.find(n=> document.activeElement===n ); }
-function updateSelectedTextStyle(){
-  const n=getSelText(); if(!n) return; const c=cfg('text');
-  n.style.color=c.color; n.style.fontSize=c.size+'px'; n.style.fontWeight=c.bold?'700':'400'; n.style.fontStyle=c.italic?'italic':'normal';
+function deleteSelectedTextBox(){
+  if(selectedText){ selectedText.remove(); selectedText=null; pushHistory(); }
 }
-function toggleSelFmt(key,val){ const c=cfg('text'); c[key]=!c[key]; saveConf(); updateSelectedTextStyle(); }
-function deleteSelectedText(){ const n=getSelText(); if(!n) return; n.textContent=''; n.blur(); }
-function deleteSelectedFrame(){ const n=getSelText(); if(!n) return; n.remove(); textNodes=textNodes.filter(x=>x!==n); pushHistory(); }
 
-/* ===== 初期化 ===== */
-fit(); pushHistory(); drawGrid();
+/* ========= history ========= */
+function snapshot(){
+  // 画像レイヤ
+  const w = paper.width, h=paper.height;
+  const img = paper.toDataURL('image/png');
+  // テキストHTML
+  const html = textLayer.innerHTML;
+  return {img, html, w, h};
+}
+function restore(snap){
+  return new Promise(res=>{
+    const img = new Image();
+    img.onload=()=>{
+      // いったんクリア
+      ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr);
+      ctx.clearRect(0,0,paper.width/dpr,paper.height/dpr);
+      ctx.drawImage(img,0,0);
+      textLayer.innerHTML = snap.html;
+      res();
+    };
+    img.src = snap.img;
+  });
+}
+function pushHistory(){
+  const s = snapshot();
+  hist.push(s);
+  while(hist.length>HIST_MAX) hist.shift();
+  redoStack.length=0;
+}
+$('#undoBtn').onclick = async ()=>{
+  if(hist.length<=1) return;
+  redoStack.push(hist.pop());
+  const prev = hist[hist.length-1];
+  await restore(prev);
+};
+$('#redoBtn').onclick = async ()=>{
+  if(!redoStack.length) return;
+  const snap = redoStack.pop();
+  hist.push(snap);
+  await restore(snap);
+};
+
+/* ========= topbar actions ========= */
+$('#zoomOut').onclick=()=>setZoom(zoom-0.1);
+$('#zoomIn').onclick =()=>setZoom(zoom+0.1);
+$('#zoomPct').onclick=()=>setZoom(1);
+
+$('#printBtn').onclick = ()=>window.print();
+
+$('#pngBtn').onclick = ()=>{
+  const url = paper.toDataURL('image/png');
+  const a = document.createElement('a');
+  a.href = url; a.download = 'note.png'; a.click();
+};
+
+$('#shareBtn').onclick = async ()=>{
+  try{
+    if(navigator.share){
+      const blob = await new Promise(r=>paper.toBlob(r));
+      const file = new File([blob],'note.png',{type:'image/png'});
+      await navigator.share({title:'Note', files:[file]});
+    }else{
+      $('#pngBtn').click();
+    }
+  }catch{}
+};
+
+/* ========= boot ========= */
+function boot(){
+  measureTopbar();
+  resizeCanvases();
+  setZoom(1);
+  setActive('pen');
+  panel.classList.add('show'); // 起動時は見えるように
+  buildPanel();
+  // 初期スナップ
+  pushHistory();
+}
+on(window,'resize',()=>{ measureTopbar(); resizeCanvases(); });
+on(document,'visibilitychange',()=>{ measureTopbar(); resizeCanvases(); });
+boot();
 </script>
 </body>
 </html>
